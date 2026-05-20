@@ -275,5 +275,8 @@
   ],
   "1.28.16": [
     "normalize CI config names, step labels, and YAML document markers."
+  ],
+  "1.28.17": [
+    "bump iOS deployment target to 15.0, migrate to SwiftPM plugin package, and trim unused pods."
   ]
 }
