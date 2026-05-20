@@ -245,5 +245,8 @@
   ],
   "1.28.6": [
     "enrich macOS menu bar with app version, device info, and dynamic show/hide toggle."
+  ],
+  "1.28.7": [
+    "track title resolution state to prevent stale fallback titles during navigation."
   ]
 }
