@@ -278,5 +278,8 @@
   ],
   "1.28.17": [
     "bump iOS deployment target to 15.0, migrate to SwiftPM plugin package, and trim unused pods."
+  ],
+  "1.28.18": [
+    "include Release job name and fix app bundle casing to Browser.app."
   ]
 }
