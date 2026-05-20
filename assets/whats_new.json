@@ -251,5 +251,8 @@
   ],
   "1.28.8": [
     "use LayoutBuilder for responsive vertical centering on Torry search page."
+  ],
+  "1.28.9": [
+    "update bundle ID to com.bniladridas.browser and harden process/crash log handling."
   ]
 }
