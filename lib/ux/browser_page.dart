@@ -2045,6 +2045,7 @@ class TabData {
   String? faviconUrl;
   String? pendingNavigationUrl;
   String? pendingNavigationSourceUrl;
+  bool isResolvingPageTitle = false;
   String? forwardUrl; // URL to go forward to when on home page
   String? homeLaunchedSiteFamily;
   bool hideStaleWebViewUntilPageFinish = false;
@@ -4636,6 +4637,14 @@ class _BrowserPageState extends State<BrowserPage>
     final normalized = _normalizeTabTitle(tab.pageTitle);
     if (normalized.isNotEmpty) return normalized;
     if (tab.currentUrl == defaultHomepageUrl) return '';
+    if (tab.state is BrowserError) {
+      return _tabFallbackTitleFromUrl(tab.currentUrl);
+    }
+    if (tab.isResolvingPageTitle ||
+        tab.pendingNavigationUrl != null ||
+        tab.state is Loading) {
+      return '';
+    }
     return _tabFallbackTitleFromUrl(tab.currentUrl);
   }
 
@@ -4651,16 +4660,26 @@ class _BrowserPageState extends State<BrowserPage>
   Future<void> _updateTabTitle(TabData tab, {String? hintedTitle}) async {
     if (!mounted || tab.isClosed) return;
     final controller = tab.webViewController;
-    if (controller == null) return;
+    if (controller == null) {
+      if (tab.isResolvingPageTitle && mounted && !tab.isClosed) {
+        setState(() {
+          tab.isResolvingPageTitle = false;
+        });
+      }
+      return;
+    }
 
+    final sourceUrl = tab.currentUrl;
     var candidate = _normalizeTabTitle(hintedTitle);
     if (candidate.isEmpty) {
       try {
         candidate = _normalizeTabTitle(await controller.getTitle());
+        if (!mounted || tab.isClosed || tab.currentUrl != sourceUrl) return;
       } catch (_) {
         // Best effort only.
       }
     }
+    if (!mounted || tab.isClosed || tab.currentUrl != sourceUrl) return;
     if (candidate.isEmpty) {
       try {
         candidate = _normalizeTabTitle(
@@ -4668,15 +4687,32 @@ class _BrowserPageState extends State<BrowserPage>
             await controller.runJavaScriptReturningResult('document.title'),
           ),
         );
+        if (!mounted || tab.isClosed || tab.currentUrl != sourceUrl) return;
       } catch (_) {
         // Best effort only.
       }
     }
 
-    if (!mounted || tab.isClosed) return;
-    if (candidate.isEmpty || candidate == tab.pageTitle) return;
+    if (!mounted || tab.isClosed || tab.currentUrl != sourceUrl) return;
+    if (candidate.isEmpty) {
+      if (tab.isResolvingPageTitle) {
+        setState(() {
+          tab.isResolvingPageTitle = false;
+        });
+      }
+      return;
+    }
+    if (candidate == tab.pageTitle) {
+      if (tab.isResolvingPageTitle) {
+        setState(() {
+          tab.isResolvingPageTitle = false;
+        });
+      }
+      return;
+    }
     setState(() {
       tab.pageTitle = candidate;
+      tab.isResolvingPageTitle = false;
     });
   }
 
@@ -4759,26 +4795,6 @@ class _BrowserPageState extends State<BrowserPage>
     required BoxFit fit,
     required Widget fallback,
   }) {
-    final isGoogleFavicon = url.contains('google.com/s2/favicons');
-    if (isGoogleFavicon) {
-      return FutureBuilder<bool>(
-        future: _faviconUrlReturns200(url),
-        builder: (context, snapshot) {
-          final isValid = snapshot.data ?? false;
-          if (!isValid) return fallback;
-          return ClipRRect(
-            borderRadius: BorderRadius.circular(3),
-            child: Image.network(
-              url,
-              width: width,
-              height: height,
-              fit: fit,
-              errorBuilder: (_, __, ___) => fallback,
-            ),
-          );
-        },
-      );
-    }
     return ClipRRect(
       borderRadius: BorderRadius.circular(3),
       child: Image.network(
@@ -4879,6 +4895,13 @@ class _BrowserPageState extends State<BrowserPage>
     return uri.replace(path: '/favicon.ico', queryParameters: null).toString();
   }
 
+  String? _cachedFaviconForUrl(String url) {
+    final host = _hostFromUrl(url);
+    if (host == null || host.isEmpty) return null;
+    final cached = _faviconCacheByHost[host];
+    return (cached == null || cached.isEmpty) ? null : cached;
+  }
+
   Future<bool> _isSafeFaviconUrl(String url) async {
     final normalized = url.trim();
     final uri = Uri.tryParse(normalized);
@@ -4919,7 +4942,8 @@ class _BrowserPageState extends State<BrowserPage>
   Future<void> _updateTabFavicon(TabData tab) async {
     final controller = tab.webViewController;
     if (controller == null || tab.isClosed) return;
-    final host = _hostFromUrl(tab.currentUrl);
+    final sourceUrl = tab.currentUrl;
+    final host = _hostFromUrl(sourceUrl);
     if (host != null) {
       final cached = _faviconCacheByHost[host];
       if (cached != null && cached.isNotEmpty) {
@@ -4981,8 +5005,9 @@ class _BrowserPageState extends State<BrowserPage>
     } catch (_) {
       // Best effort only.
     }
-    resolvedFavicon ??= _hostFaviconIcoUrlFor(tab.currentUrl);
-    resolvedFavicon ??= _defaultFaviconUrlFor(tab.currentUrl);
+    if (tab.currentUrl != sourceUrl || tab.isClosed) return;
+    resolvedFavicon ??= _hostFaviconIcoUrlFor(sourceUrl);
+    resolvedFavicon ??= _defaultFaviconUrlFor(sourceUrl);
     final isResolvedFaviconSafeAndRenderable =
         resolvedFavicon != null && resolvedFavicon.isNotEmpty
             ? await _isSafeAndRenderableFaviconUrl(resolvedFavicon)
@@ -4992,13 +5017,13 @@ class _BrowserPageState extends State<BrowserPage>
         !isResolvedFaviconSafeAndRenderable) {
       // Prefer the host favicon.ico when pages expose only non-renderable icons (e.g. SVG),
       // otherwise fall back to the current working favicon or a generic resolver.
-      final hostIco = _hostFaviconIcoUrlFor(tab.currentUrl);
+      final hostIco = _hostFaviconIcoUrlFor(sourceUrl);
       final hostIcoRenderable = hostIco != null && hostIco.isNotEmpty
           ? await _isSafeAndRenderableFaviconUrl(hostIco)
           : false;
       resolvedFavicon = hostIcoRenderable
           ? hostIco
-          : (tab.faviconUrl ?? _defaultFaviconUrlFor(tab.currentUrl));
+          : (tab.faviconUrl ?? _defaultFaviconUrlFor(sourceUrl));
     }
     final isResolvedFaviconSafe =
         resolvedFavicon != null && resolvedFavicon.isNotEmpty
@@ -5021,12 +5046,10 @@ class _BrowserPageState extends State<BrowserPage>
         resolvedFavicon.isNotEmpty &&
         isResolvedFaviconSafe &&
         faviconReturns200;
-    if (!useResolvedFavicon && host != null && host.isNotEmpty) {
-      _faviconHostSafetyCache[host] = false;
-    }
     if (resolvedFavicon == null || resolvedFavicon.isEmpty) return;
     if (resolvedFavicon == tab.faviconUrl || !mounted || tab.isClosed) return;
     if (!useResolvedFavicon) return;
+    if (tab.currentUrl != sourceUrl) return;
     setState(() {
       tab.faviconUrl = resolvedFavicon;
     });
@@ -6766,6 +6789,7 @@ class _BrowserPageState extends State<BrowserPage>
             activeTab.homeLaunchedSiteFamily = null;
             activeTab.currentUrl = url;
             activeTab.pageTitle = null;
+            activeTab.isResolvingPageTitle = false;
             activeTab.pendingNavigationUrl = null;
             activeTab.pendingNavigationSourceUrl = null;
             activeTab.urlController.text = _displayUrl(url);
@@ -6789,6 +6813,8 @@ class _BrowserPageState extends State<BrowserPage>
           activeTab.pendingNavigationUrl = null;
           activeTab.pendingNavigationSourceUrl = null;
           activeTab.currentUrl = url;
+          activeTab.pageTitle = null;
+          activeTab.isResolvingPageTitle = false;
           activeTab.urlController.text = url;
           activeTab.state =
               const BrowserState.error('That address does not look valid.');
@@ -6803,8 +6829,10 @@ class _BrowserPageState extends State<BrowserPage>
     activeTab.pendingNavigationUrl = processedUrl;
     activeTab.pendingNavigationSourceUrl = previousUrl;
     activeTab.currentUrl = processedUrl;
+    activeTab.pageTitle = null;
+    activeTab.isResolvingPageTitle = true;
     activeTab.urlController.text = _displayUrl(processedUrl);
-    activeTab.faviconUrl = _defaultFaviconUrlFor(processedUrl);
+    activeTab.faviconUrl = _cachedFaviconForUrl(processedUrl);
     activeTab.hideStaleWebViewUntilPageFinish = wasOnHome;
     if (activeTab.webViewController == null && mounted) {
       setState(() {});
@@ -7174,6 +7202,7 @@ class _BrowserPageState extends State<BrowserPage>
             final normalizedTitle = _normalizeTabTitle(title);
             if (normalizedTitle.isNotEmpty) {
               tab.pageTitle = normalizedTitle;
+              tab.isResolvingPageTitle = false;
             }
           });
         }
@@ -7217,6 +7246,7 @@ class _BrowserPageState extends State<BrowserPage>
             tab.urlController.text = url;
           }
           tab.pageTitle = normalizedTitle;
+          tab.isResolvingPageTitle = false;
         });
       });
       tab.webViewController!.addJavaScriptChannel('PageTapChannel',
@@ -7336,6 +7366,7 @@ class _BrowserPageState extends State<BrowserPage>
             tab.urlController.text = tab.currentUrl;
             tab.state = const BrowserState.loading();
             tab.pageTitle = null;
+            tab.isResolvingPageTitle = true;
             tab.hasUserInteractedWithPage = false;
             tab.hasMediaPlaying = false;
             tab.isMuted = false;
@@ -7343,14 +7374,7 @@ class _BrowserPageState extends State<BrowserPage>
             tab.detectedSeedColor = null;
             tab.ambientSeedColor = null;
             tab.lastAmbientProbeAt = null;
-            final host = _hostFromUrl(actualUrl);
-            final nextFavicon = host != null
-                ? (_faviconCacheByHost[host] ??
-                    _defaultFaviconUrlFor(actualUrl))
-                : _defaultFaviconUrlFor(actualUrl);
-            if (nextFavicon != null && nextFavicon.isNotEmpty) {
-              tab.faviconUrl = nextFavicon;
-            }
+            tab.faviconUrl = _cachedFaviconForUrl(actualUrl);
             _recordHistory(tab, tab.currentUrl);
           });
           _syncPagePointerEvents(tab);
