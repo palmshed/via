@@ -242,5 +242,8 @@
   ],
   "1.28.5": [
     "remove Git fetch feature, settings toggle, and related tests."
+  ],
+  "1.28.6": [
+    "enrich macOS menu bar with app version, device info, and dynamic show/hide toggle."
   ]
 }
