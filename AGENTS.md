@@ -87,21 +87,21 @@ Follow the repository's pre-commit hooks for commit messages:
 - Use conventional commit format without scope punctuation: `type: description`
 - Keep the first line lowercase
 - Keep the first line concise (max 40 characters) to satisfy hook checks
-- NEVER use the word "add" in commit messages - Use alternative verbs like "integrate", "implement", "include", "attach", "configure", "setup", "enable", "support", etc.
+- Do not use the word "add" in commit messages. Use alternatives like "integrate", "implement", "include", "attach", "configure", "setup", "enable", or "support".
 - Examples:
-  - `feat: add crashlytics integration` (NOT ALLOWED)
-  - `feat: integrate crashlytics for crash reporting` (USE THIS INSTEAD)
-  - `fix: add button alignment fix` (NOT ALLOWED)
-  - `fix: resolve button alignment issue` (USE THIS INSTEAD)
+  - `feat: add crashlytics integration` (avoid)
+  - `feat: integrate crashlytics for crash reporting` (use)
+  - `fix: add button alignment fix` (avoid)
+  - `fix: resolve button alignment issue` (use)
 
 Validation Rule: Before committing, verify the commit message does not contain the word "add" (case-insensitive). Use:
 ```bash
-git log --oneline -1 | grep -qiw "add" && echo "ERROR: Commit message contains 'add'" || echo "OK"
+git log --oneline -1 | grep -qiw "add" && echo "commit message contains 'add'" || echo "ok"
 ```
 
 Note: For robust handling of user input (e.g., PR titles), use `printf "%s\n" "$VAR" | grep -qiw "add"` instead of `echo "$VAR" | grep -qiw "add"` to avoid issues with input starting with hyphens.
 
-Agents must adhere to these rules to pass CI checks. Do not use --no-verify or bypass hooks; fix issues to ensure code quality.
+Agents should follow these rules to pass CI checks. Do not use --no-verify or bypass hooks; fix issues instead.
 
 ## Issue Tracking During PR Work
 
@@ -263,7 +263,7 @@ git status
 git diff --stat
 git add assets/whats_new.json pubspec.yaml
 git commit -m "chore: finalize X.Y.Z bump"
-git log --oneline -1 | grep -qiw "add" && echo "ERROR: Commit message contains 'add'" || echo "OK"
+git log --oneline -1 | grep -qiw "add" && echo "commit message contains 'add'" || echo "ok"
 git push
 
 # PR metadata updates
@@ -305,7 +305,7 @@ This project uses Firebase with environment variables. For local development:
    - Run `flutterfire configure --platforms=macos` to generate real config
    - Or create a dummy file at `macos/Runner/GoogleService-Info.plist`
 
-**Warning**: If `.env` is not provided with correct Firebase variables, the macOS app will crash with:
+Note: if `.env` is not provided with correct Firebase variables, the macOS app can crash with:
 ```text
 Exception Type: EXC_CRASH (SIGABRT)
 Application Specific Information: abort() called
@@ -323,7 +323,7 @@ read -p "Enter your PR title: " PR_TITLE
 
 # Validate PR title does not contain "add"
 if printf "%s\n" "$PR_TITLE" | grep -qiw "add"; then
-  echo "ERROR: PR title contains 'add'. Use alternative verbs like integrate, implement, include, etc."
+  echo "PR title contains 'add'. Use alternatives like integrate, implement, or include."
   exit 1
 fi
 
@@ -357,36 +357,36 @@ gh pr create \
 ## Verification Steps
 
 > [!NOTE]
-> **Test word boundary matching**
+> **word boundary check**
 > ```bash
-> # Should match (contains standalone "add")
-> printf "%s\n" "fix: add address handling" | grep -qiw "add" && echo "FOUND" || echo "NOT FOUND"
+> # matches standalone "add"
+> printf "%s\n" "fix: add address handling" | grep -qiw "add" && echo "found" || echo "not found"
 >
-> # Should NOT match (no standalone "add")
-> printf "%s\n" "fix: integrate address handling" | grep -qiw "add" && echo "FOUND" || echo "NOT FOUND"
+> # does not match when there is no standalone "add"
+> printf "%s\n" "fix: integrate address handling" | grep -qiw "add" && echo "found" || echo "not found"
 >
-> # Should NOT match (contains "padding" not "add")
-> printf "%s\n" "fix: padding issue" | grep -qiw "add" && echo "FOUND" || echo "NOT FOUND"
+> # does not match words like "padding"
+> printf "%s\n" "fix: padding issue" | grep -qiw "add" && echo "found" || echo "not found"
 > ```
 
-> [!WARNING]
-> **Verify commit message validation**
+> [!NOTE]
+> **commit message check**
 > ```bash
-> # Test with prohibited word
-> printf "%s\n" "feat: add crashlytics integration" | grep -qiw "add" && echo "ERROR: Contains 'add'" || echo "OK"
+> # contains the prohibited word
+> printf "%s\n" "feat: add crashlytics integration" | grep -qiw "add" && echo "contains 'add'" || echo "ok"
 >
-> # Test with allowed alternative
-> printf "%s\n" "feat: integrate crashlytics for crash reporting" | grep -qiw "add" && echo "ERROR: Contains 'add'" || echo "OK"
+> # allowed alternative
+> printf "%s\n" "feat: integrate crashlytics for crash reporting" | grep -qiw "add" && echo "contains 'add'" || echo "ok"
 > ```
 
 > [!TIP]
-> **Verify PR title format**
+> **PR title format**
 > ```bash
-> # This PR title (valid)
+> # valid title
 > printf "%s\n" "chore[guidelines] :: integrate commit message and pr title validation" | grep -E "^(feat|fix|docs|refactor|chore|deps|perf|ci|build|revert)\[[a-zA-Z0-9]+\]\ ::\ .+" && echo "Format valid" || echo "Format invalid"
 >
-> # This would be invalid (contains "add")
-> printf "%s\n" "chore[guidelines] :: add validation for pr titles" | grep -qiw "add" && echo "Contains prohibited word" || echo "OK"
+> # contains the prohibited word
+> printf "%s\n" "chore[guidelines] :: add validation for pr titles" | grep -qiw "add" && echo "contains prohibited word" || echo "ok"
 > ```
 EOF
 )"

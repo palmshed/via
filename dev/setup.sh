@@ -5,22 +5,19 @@
 # Use of this source code is governed by a MIT license that can be
 # found in the LICENSE file.
 
-# Development setup script
+# Local development setup helper.
 
-echo "Setting up development environment..."
+echo "setting up development environment..."
 
-# Check if Flutter is installed
 if ! command -v flutter &> /dev/null; then
-    echo "Flutter not found. Please install Flutter: https://flutter.dev/docs/get-started/install"
+    echo "flutter not found. install Flutter 3.44.0: https://docs.flutter.dev/get-started/install"
     exit 1
 fi
 
-echo "Flutter version: $(flutter --version)"
+echo "flutter version: $(flutter --version)"
 
-# Install dependencies
 flutter pub get
 
-# Run tests
 flutter test
 
-echo "Setup complete! Run './scripts/e2e.sh' for e2e tests."
+echo "setup complete. run './scripts/e2e.sh' for e2e tests."

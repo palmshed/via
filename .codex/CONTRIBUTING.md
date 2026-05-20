@@ -8,7 +8,7 @@ Use this file to capture how Codex should operate within this repository.
 
 - Keep changes small and directly tied to the request.
 - Follow PR title format: `type[scope] :: description`.
-- Follow commit format: `type(scope): description` or `type[scope]: description`.
+- Follow commit format: `type: description`.
 - Do not bypass hooks or skip required checks.
 - Avoid editing generated files unless explicitly requested.
 
