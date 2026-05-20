@@ -1,11 +1,11 @@
----
 # SPDX-License-Identifier: MIT
+---
 #
 # Copyright 2026 bniladridas. All rights reserved.
 # Use of this source code is governed by a MIT license that can be
 # found in the LICENSE file.
 
-name: PR Title Check
+name: PR title
 
 on:
   pull_request:
@@ -13,10 +13,11 @@ on:
 
 jobs:
   pr-title-check:
+    name: PR title
     runs-on: ubuntu-latest
     if: github.repository_owner == 'bniladridas'
     steps:
-      - name: Check PR title format
+      - name: Check title
         env:
           TITLE: ${{ github.event.pull_request.title }}
         run: |

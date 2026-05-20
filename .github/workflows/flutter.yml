@@ -1,11 +1,11 @@
----
 # SPDX-License-Identifier: MIT
+---
 #
 # Copyright 2026 bniladridas. All rights reserved.
 # Use of this source code is governed by a MIT license that can be
 # found in the LICENSE file.
 
-name: Flutter CI
+name: Flutter
 
 on:
   push:
@@ -15,6 +15,7 @@ on:
 
 jobs:
   test:
+    name: Flutter
     runs-on: macos-latest
     if: github.repository_owner == 'bniladridas'
 
@@ -24,7 +25,7 @@ jobs:
         with:
           flutter-version: '3.44.0'
       - run: flutter pub get
-      - name: Create .env file
+      - name: Write env file
         run: |
           {
             echo "FIREBASE_API_KEY=AIzaSy000000000000000000000000000000000"
@@ -33,7 +34,7 @@ jobs:
             echo "FIREBASE_PROJECT_ID=dummy_project_id"
             echo "FIREBASE_STORAGE_BUCKET=dummy_storage_bucket"
             } > .env
-      - name: Create dummy GoogleService-Info.plist for CI
+      - name: Write macOS Firebase plist
         run: |
           cat <<'EOF' | sed 's/^          //' > macos/Runner/GoogleService-Info.plist
           <?xml version="1.0" encoding="UTF-8"?>

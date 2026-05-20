@@ -1,11 +1,11 @@
----
 # SPDX-License-Identifier: MIT
+---
 #
 # Copyright 2026 bniladridas. All rights reserved.
 # Use of this source code is governed by a MIT license that can be
 # found in the LICENSE file.
 
-name: UI Tests
+name: UI
 
 on:
   push:
@@ -15,6 +15,7 @@ on:
 
 jobs:
   ui-test:
+    name: UI
     runs-on: macos-latest
     if: github.repository_owner == 'bniladridas'
 
@@ -24,7 +25,7 @@ jobs:
         with:
           flutter-version: '3.44.0'
       - run: flutter pub get
-      - name: Create .env file
+      - name: Write env file
         run: |
           {
             echo "FIREBASE_API_KEY=AIzaSy000000000000000000000000000000000"
@@ -33,7 +34,7 @@ jobs:
             echo "FIREBASE_PROJECT_ID=dummy_project_id"
             echo "FIREBASE_STORAGE_BUCKET=dummy_storage_bucket"
           } > .env
-      - name: Create dummy GoogleService-Info.plist for macOS
+      - name: Write macOS Firebase plist
         run: |
           cat << 'EOF' | sed 's/^          //' > macos/Runner/GoogleService-Info.plist
           <?xml version="1.0" encoding="UTF-8"?>
@@ -59,25 +60,25 @@ jobs:
           </dict>
           </plist>
           EOF
-      - name: Run widget tests
+      - name: Widget tests
         run: flutter test test/widget_test.dart
-      - name: Generate freezed files
+      - name: Freezed files
         run: flutter pub run build_runner build
-      - name: Install CocoaPods dependencies
+      - name: CocoaPods
         run: |
           cd ios
           pod install
-      - name: Build iOS project
+      - name: iOS debug build
         run: flutter build ios --debug --no-codesign
-      - name: Prepare for iOS build
+      - name: iOS build prep
         run: |
           flutter clean
           flutter pub get
           flutter pub run build_runner build
 
-      - name: Build iOS app for simulator
+      - name: iOS simulator build
         run: flutter build ios --debug --simulator --no-codesign
-      - name: Prepare iOS simulator
+      - name: iOS simulator
         run: |
           xcrun simctl shutdown all || true
           SIMULATOR_UDID="$(xcrun simctl list devices available | awk -F '[()]' '/iPhone 16/ {print $2; exit}')"
@@ -91,14 +92,14 @@ jobs:
           echo "SIMULATOR_UDID=$SIMULATOR_UDID" >> "$GITHUB_ENV"
           xcrun simctl boot "$SIMULATOR_UDID" || true
           xcrun simctl bootstatus "$SIMULATOR_UDID" -b
-      - name: Build iOS for testing
+      - name: iOS test build
         run: |
           cd ios
           xcodebuild -workspace Runner.xcworkspace -scheme Runner \
             -destination "id=$SIMULATOR_UDID" \
             -configuration Debug build-for-testing \
             CODE_SIGNING_ALLOWED=NO
-      - name: Run iOS Runner tests
+      - name: iOS tests
         run: |
           cd ios
           xcodebuild test-without-building -workspace Runner.xcworkspace -scheme Runner \
@@ -107,12 +108,12 @@ jobs:
           xcodebuild test-without-building -workspace Runner.xcworkspace -scheme Runner \
             -destination "id=$SIMULATOR_UDID" \
             CODE_SIGNING_ALLOWED=NO
-      - name: Build macOS project
+      - name: macOS debug build
         run: |
           flutter build macos --debug
           cd macos
           pod install
           cd ..
-      - name: Run macOS Runner tests
+      - name: macOS tests
         run: |
           echo "macOS tests temporarily disabled"
