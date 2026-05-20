@@ -257,5 +257,8 @@
   ],
   "1.28.10": [
     "remove persist-credentials: false from version-bump workflow."
+  ],
+  "1.28.11": [
+    "bump auto-label action from v1 to v2."
   ]
 }
