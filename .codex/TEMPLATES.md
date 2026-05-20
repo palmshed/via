@@ -25,10 +25,10 @@ Examples:
 - [ ] Performance
 - [ ] Security
 
-Impact validation rule (required):
+Impact validation rule:
 - Before PR create/edit, verify each checked category has at least one matching Summary bullet.
 - If no concrete change supports a category, keep it unchecked.
-- Never skip this validation step.
+- Keep this validation step in place.
 
 ## Related Items
 - Resolves #[issue-number]
@@ -39,4 +39,4 @@ Impact validation rule (required):
 - Additional details or context
 
 ## Review
-Reviewed using Graphite Agent
+Reviewed using self-review or automated review.

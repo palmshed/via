@@ -23,17 +23,17 @@ Use this file for repeatable Codex-assisted tasks and checklists.
   - `gh pr create`
   - `gh pr merge`
 
-## PR Impact Validation (Required)
+## PR Impact Validation
 
 - Before running `gh pr create` or `gh pr edit`, review `## Impact`.
 - Check only categories directly supported by `## Summary` bullets.
 - If a box cannot be justified from `## Summary`, uncheck it.
 - Re-run this validation after any PR description update.
 
-## Version Bump (Manual)
+## Version Bump
 
 - Update `VERSION` to `X.Y.Z+N`.
 - Run `./scripts/pubspec.sh`.
 - Commit with `chore: bump version to X.Y.Z`.
-- Create PR titled `chore: bump version to X.Y.Z`.
-- Tag release `desktop/app-X.Y.Z` and title `Release X.Y.Z`.
+- Create a PR titled `chore[version] :: bump version to X.Y.Z`.
+- Use release automation for `desktop/app-X.Y.Z` when the release is ready.

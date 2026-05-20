@@ -1,8 +1,8 @@
-# Xcode Setup
+# Xcode setup
 
-## Accepting Xcode License
+## Accept Xcode license
 
-After installing Xcode, you must accept the license agreement:
+After installing Xcode, accept the license agreement:
 
 ```bash
 sudo xcodebuild -license
@@ -10,9 +10,9 @@ sudo xcodebuild -license
 
 Scroll to the bottom and type `agree` to accept.
 
-## Switching to Xcode (if using Command Line Tools)
+## Switch to Xcode
 
-If you have both Xcode and Command Line Tools installed, you may need to switch:
+If both Xcode and Command Line Tools are installed, switch to Xcode:
 
 ```bash
 sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer

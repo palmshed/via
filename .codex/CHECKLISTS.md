@@ -17,11 +17,11 @@
 - Bump `VERSION` to `X.Y.Z+N`.
 - Run `./scripts/pubspec.sh`.
 - Commit with `chore: bump version to X.Y.Z`.
-- Tag release `desktop/app-X.Y.Z`.
-- Title release `Release X.Y.Z`.
+- Use the release workflow or app automation for `desktop/app-X.Y.Z`.
+- Title releases `Release X.Y.Z`.
 
 ## PR Quality Gate
 
 - Validate `## Impact` before PR create/edit.
 - Ensure every checked Impact box is backed by at least one `## Summary` bullet.
-- Use GitHub auto-link keywords only (`Resolves #...`, `Closes #...`).
+- Use GitHub auto-link keywords (`Resolves #...`, `Closes #...`).
