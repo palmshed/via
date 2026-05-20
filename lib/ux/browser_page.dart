@@ -7948,6 +7948,7 @@ class _BrowserPageState extends State<BrowserPage>
                                 child: SizeTransition(
                                   sizeFactor: animation,
                                   axis: Axis.horizontal,
+                                  // ignore: deprecated_member_use
                                   axisAlignment: -1.0,
                                   child: child,
                                 ),
@@ -8157,6 +8158,7 @@ class _BrowserPageState extends State<BrowserPage>
                         ? ReorderableListView.builder(
                             scrollDirection: Axis.horizontal,
                             itemCount: tabs.length,
+                            // ignore: deprecated_member_use
                             onReorder: _reorderTab,
                             onReorderStart: (_) {
                               _setWindowMovable(false);
