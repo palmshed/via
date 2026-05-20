@@ -4,6 +4,7 @@
 # Use of this source code is governed by a MIT license
 # found in the LICENSE file.
 
+---
 version: 2.1
 
 executors:
@@ -28,23 +29,23 @@ commands:
             - ~/.pub-cache
 
 jobs:
-  daily_maintenance:
+  maintenance:
     executor: flutter
     steps:
       - checkout
 
       - run:
-          name: Flutter Version
+          name: Flutter version
           command: flutter --version
 
       - restore_flutter_cache
 
       - run:
-          name: Get Dependencies
+          name: Dependencies
           command: flutter pub get
 
       - run:
-          name: Create .env file
+          name: Write env file
           command: |
             echo "FIREBASE_API_KEY=test" > .env
             echo "FIREBASE_PROJECT_ID=test" >> .env
@@ -54,25 +55,25 @@ jobs:
       - save_flutter_cache
 
       - run:
-          name: Generate Code
+          name: Generate code
           command: flutter pub run build_runner build --delete-conflicting-outputs
 
       - run:
-          name: Static Analysis
+          name: Analyze
           command: flutter analyze --fatal-infos
 
       - run:
-          name: Run Unit Tests
+          name: Tests
           command: flutter test --no-pub --coverage
 
 workflows:
   # Runs on every push
-  on_push:
+  push:
     jobs:
-      - daily_maintenance
+      - maintenance
 
   # Runs daily on schedule
-  daily_maintenance:
+  daily:
     triggers:
       - schedule:
           cron: "0 6 * * *"
@@ -82,4 +83,4 @@ workflows:
                 - main
                 - master
     jobs:
-      - daily_maintenance
+      - maintenance
