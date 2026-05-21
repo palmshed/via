@@ -58,6 +58,18 @@ import 'interaction_blocker.dart';
 export '../features/theme_color_parser.dart';
 
 const _userAgents = {
+  TargetPlatform.android: {
+    'modern':
+        'Mozilla/5.0 (Linux; Android 16; Pixel 9) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Mobile Safari/537.36',
+    'legacy':
+        'Mozilla/5.0 (Linux; Android 10; Pixel 4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.120 Mobile Safari/537.36',
+  },
+  TargetPlatform.iOS: {
+    'modern':
+        'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1',
+    'legacy':
+        'Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Mobile/15E148 Safari/604.1',
+  },
   TargetPlatform.macOS: {
     'modern':
         'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0.2 Safari/605.1.15',
@@ -2234,6 +2246,7 @@ class _BrowserPageState extends State<BrowserPage>
   static const double _kMacOsLeadingInsetWithTrafficLights = 16.0;
   static const double _kMacOsAddressBarLeftOffset = 60.0;
   static const double _kDefaultLeadingInset = 16.0;
+  static const double _kMobileLeadingInset = 12.0;
   static const double _kMacOsTopToolbarInset = 8.0;
   static const String _legacyLayoutFixScriptAsset =
       'assets/legacy_layout_fix.js';
@@ -3184,7 +3197,13 @@ class _BrowserPageState extends State<BrowserPage>
 
   void _setModalInteractionBlockOpen(bool open) {
     if (_modalInteractionBlockOpen == open) return;
-    _modalInteractionBlockOpen = open;
+    if (mounted) {
+      setState(() {
+        _modalInteractionBlockOpen = open;
+      });
+    } else {
+      _modalInteractionBlockOpen = open;
+    }
     _syncPointerEventsForAllTabs();
   }
 
@@ -4377,6 +4396,97 @@ class _BrowserPageState extends State<BrowserPage>
     return description.contains('cancelled') ||
         description.contains('canceled') ||
         description.contains('interrupted');
+  }
+
+  bool _shouldIgnoreHttpError(TabData tab, HttpResponseError error) {
+    final requestUrl = error.request?.uri.toString();
+    if (requestUrl == null || requestUrl.isEmpty) {
+      return false;
+    }
+
+    final currentUrl = tab.currentUrl;
+    if (_urlsMatchIgnoringFragmentAndTrailingSlash(requestUrl, currentUrl)) {
+      return false;
+    }
+    if (_urlsMatchIgnoringFragmentAndTrailingSlash(
+      requestUrl,
+      tab.pendingNavigationUrl,
+    )) {
+      return false;
+    }
+
+    final sharesCurrentSite = _urlsShareSite(requestUrl, currentUrl);
+    final sharesPendingSite =
+        _urlsShareSite(requestUrl, tab.pendingNavigationUrl);
+    if ((sharesCurrentSite || sharesPendingSite) &&
+        !_isLikelySubresourceHttpErrorUrl(requestUrl)) {
+      return false;
+    }
+
+    return true;
+  }
+
+  bool _isLikelySubresourceHttpErrorUrl(String url) {
+    final uri = Uri.tryParse(url);
+    if (uri == null) return false;
+    final pathSegments = uri.pathSegments;
+    if (pathSegments.isEmpty) return false;
+    final fileName = pathSegments.last.toLowerCase();
+    if (fileName == 'favicon.ico' ||
+        fileName == 'site.webmanifest' ||
+        fileName == 'manifest.json') {
+      return true;
+    }
+    final extensionIndex = fileName.lastIndexOf('.');
+    if (extensionIndex < 0 || extensionIndex == fileName.length - 1) {
+      return false;
+    }
+    final extension = fileName.substring(extensionIndex + 1);
+    const subresourceExtensions = {
+      'apng',
+      'avif',
+      'bmp',
+      'css',
+      'gif',
+      'ico',
+      'jpeg',
+      'jpg',
+      'js',
+      'json',
+      'map',
+      'mjs',
+      'otf',
+      'png',
+      'svg',
+      'ttf',
+      'webmanifest',
+      'webp',
+      'woff',
+      'woff2',
+    };
+    return subresourceExtensions.contains(extension);
+  }
+
+  bool _urlsMatchIgnoringFragmentAndTrailingSlash(
+    String? firstUrl,
+    String? secondUrl,
+  ) {
+    if (firstUrl == null || secondUrl == null) return false;
+    try {
+      final first = Uri.parse(firstUrl).removeFragment();
+      final second = Uri.parse(secondUrl).removeFragment();
+      return _normalizeComparableUrl(first) == _normalizeComparableUrl(second);
+    } catch (_) {
+      return firstUrl == secondUrl;
+    }
+  }
+
+  String _normalizeComparableUrl(Uri uri) {
+    final normalized = uri.toString();
+    if (normalized.length > 1 && normalized.endsWith('/')) {
+      return normalized.substring(0, normalized.length - 1);
+    }
+    return normalized;
   }
 
   bool _isDownloadUrl(String url) {
@@ -6232,7 +6342,10 @@ class _BrowserPageState extends State<BrowserPage>
     ];
   }
 
-  Widget _buildMenuButton({double iconSize = 24}) {
+  Widget _buildMenuButton({
+    double iconSize = 24,
+    EdgeInsetsGeometry padding = const EdgeInsets.all(8),
+  }) {
     return MenuAnchor(
       controller: _overflowMenuController,
       consumeOutsideTap: true,
@@ -6275,7 +6388,7 @@ class _BrowserPageState extends State<BrowserPage>
                 _setOverflowMenuOpen(true);
               },
               child: Padding(
-                padding: const EdgeInsets.all(8),
+                padding: padding,
                 child: Icon(Icons.more_vert,
                     size: iconSize,
                     color: Theme.of(context).colorScheme.onSurfaceVariant),
@@ -7561,6 +7674,14 @@ class _BrowserPageState extends State<BrowserPage>
           _handleLoadError(tab, error.description);
         },
         onHttpError: (error) {
+          if (_shouldIgnoreHttpError(tab, error)) {
+            quietLogger.w(
+              'Ignoring subresource HTTP error: '
+              '${error.response?.statusCode} '
+              '${_sanitizeUrlForLog(error.request?.uri.toString())}',
+            );
+            return;
+          }
           _handleLoadError(tab, 'HTTP ${error.response?.statusCode}');
         },
       ));
@@ -7583,7 +7704,7 @@ class _BrowserPageState extends State<BrowserPage>
                   color: Theme.of(context).colorScheme.surface,
                 ),
               ),
-            if (tab.state is Loading)
+            if (tab.state is Loading && !_modalInteractionBlockOpen)
               Positioned(
                 top: 0,
                 left: 0,
@@ -7807,9 +7928,13 @@ class _BrowserPageState extends State<BrowserPage>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isMacDesktop = defaultTargetPlatform == TargetPlatform.macOS;
+    final isMobilePlatform = defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.iOS;
     final leadingInset = (isMacDesktop && !widget.hideAppBar)
         ? _kMacOsLeadingInsetWithTrafficLights
-        : _kDefaultLeadingInset;
+        : isMobilePlatform
+            ? _kMobileLeadingInset
+            : _kDefaultLeadingInset;
     final addressBarLeftOffset = (isMacDesktop && !widget.hideAppBar)
         ? _kMacOsAddressBarLeftOffset
         : 0.0;
@@ -7838,8 +7963,9 @@ class _BrowserPageState extends State<BrowserPage>
     final PreferredSizeWidget? appBarWidget = widget.hideAppBar
         ? null
         : AppBar(
-            primary: false,
-            toolbarHeight: 52,
+            primary: isMobilePlatform,
+            toolbarHeight: isMobilePlatform ? 56 : 52,
+            titleSpacing: isMobilePlatform ? 8 : null,
             backgroundColor: useAmbient
                 ? Colors.transparent
                 : theme.appBarTheme.backgroundColor,
@@ -7875,12 +8001,14 @@ class _BrowserPageState extends State<BrowserPage>
                         icon: Icons.arrow_back_ios,
                         size: 16,
                         color: toolbarForeground,
+                        padding: EdgeInsets.all(isMobilePlatform ? 7 : 8),
                         onTap: _goBack,
                       ),
                       ClickableIcon(
                         icon: Icons.arrow_forward_ios,
                         size: 16,
                         color: toolbarForeground,
+                        padding: EdgeInsets.all(isMobilePlatform ? 7 : 8),
                         onTap: _goForward,
                       ),
                     ],
@@ -7891,9 +8019,12 @@ class _BrowserPageState extends State<BrowserPage>
                 icon: Icons.add,
                 size: 22,
                 color: toolbarForeground,
+                padding: EdgeInsets.all(isMobilePlatform ? 7 : 8),
                 onTap: _addNewTab,
               ),
-              _buildMenuButton(),
+              _buildMenuButton(
+                padding: EdgeInsets.all(isMobilePlatform ? 7 : 8),
+              ),
             ],
             title: Container(
               margin: EdgeInsets.only(left: addressBarLeftOffset),
@@ -8184,7 +8315,9 @@ class _BrowserPageState extends State<BrowserPage>
                                       decoration: BoxDecoration(
                                         border: Border(
                                           bottom: BorderSide(
-                                            color: isSelected && !useAmbient
+                                            color: isSelected &&
+                                                    !useAmbient &&
+                                                    !_modalInteractionBlockOpen
                                                 ? Theme.of(context)
                                                     .colorScheme
                                                     .primary
@@ -8216,10 +8349,10 @@ class _BrowserPageState extends State<BrowserPage>
                               dividerHeight: useAmbient ? 0.0 : 1.0,
                               overlayColor:
                                   WidgetStateProperty.all(Colors.transparent),
-                              indicatorColor:
-                                  widget.themeMode == AppThemeMode.adjust
-                                      ? Colors.transparent
-                                      : Theme.of(context).colorScheme.primary,
+                              indicatorColor: _modalInteractionBlockOpen ||
+                                      widget.themeMode == AppThemeMode.adjust
+                                  ? Colors.transparent
+                                  : Theme.of(context).colorScheme.primary,
                               dividerColor: useAmbient
                                   ? Colors.transparent
                                   : toolbarDividerColor,
