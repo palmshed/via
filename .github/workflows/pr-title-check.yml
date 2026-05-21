@@ -21,7 +21,9 @@ jobs:
         env:
           TITLE: ${{ github.event.pull_request.title }}
         run: |
-          if [[ ! "$TITLE" =~ ^(feat|fix|docs|refactor|chore|deps|perf|ci|build|revert)\[[a-zA-Z0-9]+\]\ ::\ .+ ]]; then
+          title_pattern='^(feat|fix|docs|refactor|chore|deps|perf|ci|build|revert)'
+          title_pattern+='\[[a-zA-Z0-9]+([/_-][a-zA-Z0-9]+)*\]\ ::\ .+'
+          if [[ ! "$TITLE" =~ $title_pattern ]]; then
             echo "PR title does not match format: type[scope] :: description"
             exit 1
           fi
