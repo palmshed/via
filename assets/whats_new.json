@@ -293,5 +293,8 @@
   ],
   "1.28.22": [
     "refresh README screenshot with transparent browser image."
+  ],
+  "1.28.23": [
+    "commit generated freezed files and unignore .freezed.dart."
   ]
 }
