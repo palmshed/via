@@ -296,5 +296,8 @@
   ],
   "1.28.23": [
     "commit generated freezed files and unignore .freezed.dart."
+  ],
+  "1.28.24": [
+    "allow slashes and hyphens in scope pattern."
   ]
 }
