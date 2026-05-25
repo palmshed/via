@@ -299,5 +299,8 @@
   ],
   "1.28.24": [
     "allow slashes and hyphens in scope pattern."
+  ],
+  "1.29.0": [
+    "integrate adaptive launcher icon, mobile user agents, and mobile toolbar/HTTP error fixes."
   ]
 }
