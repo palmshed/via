@@ -104,9 +104,9 @@ void main() {
       expect(_readSwitchTile(tester, 'Erase suggestions').value, isTrue);
       expect(_readSwitchTile(tester, 'Hide URL').value, isTrue);
 
-      final darkChip = find.widgetWithText(ChoiceChip, 'dark');
-      expect(darkChip, findsOneWidget);
-      expect(tester.widget<ChoiceChip>(darkChip).selected, isTrue);
+      final darkRadio = find.widgetWithText(RadioListTile<AppThemeMode>, 'Dark');
+      expect(darkRadio, findsOneWidget);
+      expect(tester.widget<RadioListTile<AppThemeMode>>(darkRadio).checked, isTrue);
     });
 
     testWidgets('new profiles start with default (off) settings',
@@ -125,7 +125,7 @@ void main() {
       expect(_readSwitchTile(tester, 'Legacy UA').value, isTrue);
       expect(_readSwitchTile(tester, 'Erase suggestions').value, isFalse);
       expect(_readSwitchTile(tester, 'Hide URL').value, isFalse);
-      await tester.tap(find.text('Cancel'));
+      await tester.tapAt(const Offset(10, 10));
       await tester.pumpAndSettle();
 
       final workProfile = await profileManager.createProfile('Work');
@@ -175,18 +175,18 @@ void main() {
       );
       expect(_readSwitchTile(tester, 'Legacy UA').value, isFalse);
       expect(_readSwitchTile(tester, 'Erase suggestions').value, isFalse);
-      final lightChip = find.widgetWithText(ChoiceChip, 'light');
-      expect(tester.widget<ChoiceChip>(lightChip).selected, isTrue);
+      final lightRadio = find.widgetWithText(RadioListTile<AppThemeMode>, 'Light');
+      expect(tester.widget<RadioListTile<AppThemeMode>>(lightRadio).checked, isTrue);
 
       await profileManager.switchProfile(workProfile.id);
       await tester.pumpAndSettle();
       expect(_readSwitchTile(tester, 'Legacy UA').value, isTrue);
       expect(_readSwitchTile(tester, 'Erase suggestions').value, isTrue);
-      final darkChip = find.widgetWithText(ChoiceChip, 'dark');
-      expect(tester.widget<ChoiceChip>(darkChip).selected, isTrue);
+      final darkRadio = find.widgetWithText(RadioListTile<AppThemeMode>, 'Dark');
+      expect(tester.widget<RadioListTile<AppThemeMode>>(darkRadio).checked, isTrue);
     });
 
-    testWidgets('save persists toggles and theme preview callback',
+    testWidgets('toggles and theme preview callback persist immediately',
         (WidgetTester tester) async {
       SharedPreferences.setMockInitialValues({});
       await initProfileManager();
@@ -199,8 +199,7 @@ void main() {
       await prefs.setBool(
         profileManager
             .getScopedStorageKey(urlAutocompleteSuggestionRemovalEnabledKey),
-        false,
-      );
+          false);
       await prefs.setString(profileManager.getScopedStorageKey(themeModeKey),
           AppThemeMode.system.name);
 
@@ -219,6 +218,13 @@ void main() {
         matching: find.byType(Scrollable),
       );
 
+      if (settingsScrollable.evaluate().isNotEmpty) {
+        await tester.scrollUntilVisible(
+          _switchTileByTitle('Legacy UA'),
+          120,
+          scrollable: settingsScrollable.first,
+        );
+      }
       await tester.tap(_switchTileByTitle('Legacy UA'));
       await tester.pumpAndSettle();
 
@@ -242,18 +248,18 @@ void main() {
       await tester.tap(_switchTileByTitle('Erase suggestions'));
       await tester.pumpAndSettle();
 
-      final darkChip = find.widgetWithText(ChoiceChip, 'dark');
+      final darkRadio = find.widgetWithText(RadioListTile<AppThemeMode>, 'Dark');
       if (settingsScrollable.evaluate().isNotEmpty) {
         await tester.scrollUntilVisible(
-          darkChip,
+          darkRadio,
           120,
           scrollable: settingsScrollable.first,
         );
       }
-      await tester.tap(darkChip, warnIfMissed: false);
+      await tester.tap(darkRadio, warnIfMissed: false);
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Save'));
+      await tester.tapAt(const Offset(10, 10));
       await tester.pumpAndSettle();
 
       final prefsAfter = await SharedPreferences.getInstance();
@@ -276,7 +282,7 @@ void main() {
       expect(previewModes, contains(AppThemeMode.dark));
     });
 
-    testWidgets('cancel does not persist modified values',
+    testWidgets('toggling a switch immediately calls onSettingsChanged',
         (WidgetTester tester) async {
       SharedPreferences.setMockInitialValues({});
       await initProfileManager();
@@ -293,17 +299,27 @@ void main() {
         ),
       );
 
+      final settingsScrollable = find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.byType(Scrollable),
+      );
+
+      if (settingsScrollable.evaluate().isNotEmpty) {
+        await tester.scrollUntilVisible(
+          _switchTileByTitle('Legacy UA'),
+          120,
+          scrollable: settingsScrollable.first,
+        );
+      }
       await tester.tap(_switchTileByTitle('Legacy UA'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Cancel'));
       await tester.pumpAndSettle();
 
       final prefsAfter = await SharedPreferences.getInstance();
       expect(
           prefsAfter.getBool(
               profileManager.getScopedStorageKey(useModernUserAgentKey)),
-          isFalse);
-      expect(settingsChangedCount, 0);
+          isTrue);
+      expect(settingsChangedCount, 1);
     });
 
     testWidgets('displays Firebase configuration fields',
@@ -339,7 +355,7 @@ void main() {
       expect(find.text('App ID'), findsOneWidget);
       expect(find.text('Sender ID'), findsOneWidget);
       expect(find.text('Project ID'), findsOneWidget);
-      expect(find.text('Storage'), findsOneWidget);
+      expect(find.text('Storage Bucket'), findsOneWidget);
     });
 
     testWidgets('loads Firebase keys for settings fields',
@@ -452,7 +468,9 @@ void main() {
       await tester.enterText(appIdField, 'new-app-id');
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Save'));
+      FocusManager.instance.primaryFocus?.unfocus();
+      await tester.pumpAndSettle();
+      await tester.tapAt(const Offset(10, 10));
       await tester.pumpAndSettle();
 
       const secureStorage = FlutterSecureStorage();

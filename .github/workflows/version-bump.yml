@@ -24,11 +24,11 @@ jobs:
 
     steps:
       - id: app-token
-        name: Create Browser app token
+        name: Create Via app token
         uses: actions/create-github-app-token@v2
         with:
-          app-id: ${{ secrets.BROWSER_APP_ID }}
-          private-key: ${{ secrets.BROWSER_APP_PRIVATE_KEY }}
+          client-id: ${{ secrets.VIA_APP_CLIENT_ID }}
+          private-key: ${{ secrets.VIA_APP_PRIVATE_KEY }}
           permission-actions: write
           permission-contents: write
           permission-pull-requests: write

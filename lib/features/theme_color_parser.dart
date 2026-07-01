@@ -4,9 +4,12 @@
 // Use of this source code is governed by a MIT license that can be
 // found in the LICENSE file.
 
+import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+
+import '../utils/favicon_url_policy.dart';
 
 final RegExp _rgbColorPattern = RegExp(r'rgba?\(([^)]+)\)');
 final RegExp _hslColorPattern = RegExp(r'hsla?\(([^)]+)\)');
@@ -277,4 +280,36 @@ double _colorSaturation(Color color) {
   final minChannel = math.min(r, math.min(g, b));
   if (maxChannel == 0) return 0;
   return (maxChannel - minChannel) / maxChannel;
+}
+
+Map<String, dynamic>? parseThemeProbe(dynamic result) {
+  if (result is Map<String, dynamic>) return result;
+  final raw = FaviconUrlPolicy.normalizeJsResult(result);
+  if (raw.isEmpty) return null;
+  final decoded = _tryDecodeProbe(raw);
+  if (decoded != null) return decoded;
+  final unescaped = FaviconUrlPolicy.unescapeWrappedJson(raw);
+  if (unescaped != raw) {
+    final decodedUnescaped = _tryDecodeProbe(unescaped);
+    if (decodedUnescaped != null) return decodedUnescaped;
+  }
+  return null;
+}
+
+Map<String, dynamic>? _tryDecodeProbe(String raw) {
+  try {
+    final decoded = jsonDecode(raw);
+    if (decoded is String) {
+      final nested = jsonDecode(decoded);
+      if (nested is Map<String, dynamic>) return nested;
+    }
+    if (decoded is Map<String, dynamic>) return decoded;
+  } catch (_) {}
+  return null;
+}
+
+ThemeProbeDecision? resolveProbeToDecision(Map<String, dynamic> probe) {
+  final tone = resolveThemeProbeDecision(probe);
+  if (tone == null) return null;
+  return ThemeProbeDecision(brightness: tone.brightness, seedColor: tone.seedColor);
 }

@@ -124,7 +124,7 @@ void main() {
       // Check for navigation buttons
       expect(find.byIcon(Icons.arrow_back_ios), findsOneWidget);
       expect(find.byIcon(Icons.arrow_forward_ios), findsOneWidget);
-      expect(find.byIcon(Icons.refresh), findsOneWidget);
+      expect(find.byIcon(Icons.refresh), findsNWidgets(2));
     }, timeout: testTimeout);
 
     testWidgets('Bookmark adding and viewing', (WidgetTester tester) async {

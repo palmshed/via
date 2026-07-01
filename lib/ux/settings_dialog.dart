@@ -12,6 +12,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:package_info_plus/package_info_plus.dart';
+
 import '../constants.dart';
 import '../features/firebase_config_store.dart';
 import 'password_vault_screen.dart';
@@ -49,19 +51,6 @@ class SettingsDialog extends HookWidget {
   final bool autoHideAddressBarEnabled;
   final void Function()? onOpenHelp;
 
-  String _themeLabel(AppThemeMode mode) {
-    switch (mode) {
-      case AppThemeMode.system:
-        return 'system';
-      case AppThemeMode.light:
-        return 'light';
-      case AppThemeMode.dark:
-        return 'dark';
-      case AppThemeMode.adjust:
-        return 'adjust (page)';
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -89,14 +78,27 @@ class SettingsDialog extends HookWidget {
     final urlAutocompleteSuggestionRemovalEnabled = useState(false);
     final selectedTheme =
         useState<AppThemeMode>(currentTheme ?? AppThemeMode.system);
+    final lastNonAdjustTheme = useRef<AppThemeMode>(
+      currentTheme == AppThemeMode.adjust ? AppThemeMode.system : (currentTheme ?? AppThemeMode.system)
+    );
+    final currentAppVersion = useState<String>('1.0.0');
     final homepageController = useTextEditingController();
     final settingsScrollController = useScrollController();
+
+    final homepageFocusNode = useFocusNode();
 
     final firebaseApiKey = useTextEditingController();
     final firebaseAppId = useTextEditingController();
     final firebaseSenderId = useTextEditingController();
     final firebaseProjectId = useTextEditingController();
     final firebaseStorageBucket = useTextEditingController();
+
+    final firebaseApiKeyFocusNode = useFocusNode();
+    final firebaseAppIdFocusNode = useFocusNode();
+    final firebaseSenderIdFocusNode = useFocusNode();
+    final firebaseProjectIdFocusNode = useFocusNode();
+    final firebaseStorageBucketFocusNode = useFocusNode();
+
     final showFirebaseConfig = useState(false);
     final loadedFirebaseConfig =
         useRef<Map<String, String>>(<String, String>{});
@@ -107,6 +109,102 @@ class SettingsDialog extends HookWidget {
     final localUpdateInfo = useState<UpdateInfo?>(null);
     final effectiveUpdateInfo = localUpdateInfo.value;
     final downloadProgress = useState<double?>(null);
+
+    Future<void> saveSetting(String key, dynamic value) async {
+      final prefs = await SharedPreferences.getInstance();
+      final scopedKey = profileManager.getScopedStorageKey(key);
+      if (value is bool) {
+        await prefs.setBool(scopedKey, value);
+      } else if (value is String) {
+        await prefs.setString(scopedKey, value);
+      }
+      onSettingsChanged?.call();
+      if (key == privateBrowsingKey &&
+          value == true &&
+          originalPrivateBrowsing.value == false) {
+        onClearCaches?.call();
+        originalPrivateBrowsing.value = true;
+      }
+    }
+
+    Future<void> saveFirebaseConfig() async {
+      final newApiKey = firebaseApiKey.text.trim();
+      final newAppId = firebaseAppId.text.trim();
+      final newSenderId = firebaseSenderId.text.trim();
+      final newProjectId = firebaseProjectId.text.trim();
+      final newStorageBucket = firebaseStorageBucket.text.trim();
+
+      final oldApiKey = loadedFirebaseConfig.value[firebaseApiKeyPref] ?? '';
+      final oldAppId = loadedFirebaseConfig.value[firebaseAppIdPref] ?? '';
+      final oldSenderId = loadedFirebaseConfig.value[firebaseSenderIdPref] ?? '';
+      final oldProjectId = loadedFirebaseConfig.value[firebaseProjectIdPref] ?? '';
+      final oldStorageBucket =
+          loadedFirebaseConfig.value[firebaseStorageBucketPref] ?? '';
+
+      final firebaseChanged = oldApiKey != newApiKey ||
+          oldAppId != newAppId ||
+          oldSenderId != newSenderId ||
+          oldProjectId != newProjectId ||
+          oldStorageBucket != newStorageBucket;
+
+      if (!firebaseChanged) return;
+
+      try {
+        await FirebaseConfigStore.saveSettingsConfig(
+          apiKey: newApiKey,
+          appId: newAppId,
+          senderId: newSenderId,
+          projectId: newProjectId,
+          storageBucket: newStorageBucket,
+        );
+        loadedFirebaseConfig.value = <String, String>{
+          firebaseApiKeyPref: newApiKey,
+          firebaseAppIdPref: newAppId,
+          firebaseSenderIdPref: newSenderId,
+          firebaseProjectIdPref: newProjectId,
+          firebaseStorageBucketPref: newStorageBucket,
+        };
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content: Text('Firebase config saved — restart required for changes')),
+          );
+        }
+      } catch (e) {
+        debugPrint('Failed to save Firebase config: $e');
+      }
+    }
+
+    useEffect(() {
+      void listener() {
+        if (!firebaseApiKeyFocusNode.hasFocus &&
+            !firebaseAppIdFocusNode.hasFocus &&
+            !firebaseSenderIdFocusNode.hasFocus &&
+            !firebaseProjectIdFocusNode.hasFocus &&
+            !firebaseStorageBucketFocusNode.hasFocus) {
+          saveFirebaseConfig();
+        }
+      }
+      firebaseApiKeyFocusNode.addListener(listener);
+      firebaseAppIdFocusNode.addListener(listener);
+      firebaseSenderIdFocusNode.addListener(listener);
+      firebaseProjectIdFocusNode.addListener(listener);
+      firebaseStorageBucketFocusNode.addListener(listener);
+
+      return () {
+        firebaseApiKeyFocusNode.removeListener(listener);
+        firebaseAppIdFocusNode.removeListener(listener);
+        firebaseSenderIdFocusNode.removeListener(listener);
+        firebaseProjectIdFocusNode.removeListener(listener);
+        firebaseStorageBucketFocusNode.removeListener(listener);
+      };
+    }, [
+      firebaseApiKeyFocusNode,
+      firebaseAppIdFocusNode,
+      firebaseSenderIdFocusNode,
+      firebaseProjectIdFocusNode,
+      firebaseStorageBucketFocusNode,
+    ]);
 
     Future<void> handleUpdate(UpdateInfo info) async {
       final sizeMB = (info.size / (1024 * 1024)).round();
@@ -303,14 +401,10 @@ class SettingsDialog extends HookWidget {
       try {
         final info = await updateService.checkForUpdates();
         localUpdateInfo.value = info;
-        if (info != null) {
-          await handleUpdate(info);
-        } else {
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Browser is up to date')),
-            );
-          }
+        if (info == null && context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Browser is up to date')),
+          );
         }
       } catch (e) {
         debugPrint('Update check failed: $e');
@@ -330,6 +424,16 @@ class SettingsDialog extends HookWidget {
       Future<void> loadPreferences() async {
         final prefs = await SharedPreferences.getInstance();
         if (cancelled) return;
+        try {
+          if (Platform.environment.containsKey('FLUTTER_TEST')) {
+            currentAppVersion.value = '1.0.0';
+          } else {
+            final packageInfo = await PackageInfo.fromPlatform();
+            currentAppVersion.value = packageInfo.version;
+          }
+        } catch (_) {
+          currentAppVersion.value = '1.0.0';
+        }
         String scopedKey(String key) => profileManager.getScopedStorageKey(key);
         bool readBool(String key, {required bool defaultValue}) =>
             prefs.getBool(scopedKey(key)) ?? defaultValue;
@@ -411,6 +515,31 @@ class SettingsDialog extends HookWidget {
       };
     }, const []);
 
+    useEffect(() {
+      void listener() async {
+        if (!homepageFocusNode.hasFocus) {
+          final text = homepageController.text.trim();
+          final resolved =
+              text.isEmpty ? defaultHomepageUrl : UrlUtils.processUrl(text);
+          if (UrlUtils.isValidUrl(resolved)) {
+            homepage.value = resolved;
+            await saveSetting(homepageKey, resolved);
+          } else {
+            homepageController.text = homepage.value == defaultHomepageUrl
+                ? ''
+                : homepage.value ?? '';
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Invalid homepage URL')),
+              );
+            }
+          }
+        }
+      }
+      homepageFocusNode.addListener(listener);
+      return () => homepageFocusNode.removeListener(listener);
+    }, [homepageFocusNode, homepage]);
+
     if (homepage.value == null) {
       return const AlertDialog(
         title: Text('Settings'),
@@ -422,6 +551,24 @@ class SettingsDialog extends HookWidget {
       MediaQuery.of(context).size.height * 0.72,
       560.0,
     );
+
+    Widget buildSectionHeading(String title) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 20, bottom: 8, left: 4),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            title,
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: theme.colorScheme.primary,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ),
+      );
+    }
 
     return AlertDialog(
       alignment: Alignment.centerRight,
@@ -471,29 +618,9 @@ class SettingsDialog extends HookWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  TextField(
-                    controller: homepageController,
-                    style: theme.textTheme.bodyMedium?.copyWith(fontSize: 13),
-                    decoration: InputDecoration(
-                      labelText: 'Homepage',
-                      isDense: true,
-                      filled: false,
-                      enabledBorder: UnderlineInputBorder(
-                        borderSide: BorderSide(
-                          color: theme.colorScheme.onSurface
-                              .withValues(alpha: 0.18),
-                        ),
-                      ),
-                      focusedBorder: UnderlineInputBorder(
-                        borderSide: BorderSide(
-                          color: theme.colorScheme.primary,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
+                  buildSectionHeading('Profile'),
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
                     child: DecoratedBox(
                       decoration: BoxDecoration(
                         color: theme.colorScheme.surfaceContainerHigh,
@@ -528,7 +655,12 @@ class SettingsDialog extends HookWidget {
                           cursor: SystemMouseCursors.click,
                           child: IconButton(
                             key: const Key('settings.manage_profiles'),
-                            icon: const Icon(Icons.settings, size: 18),
+                            icon: Icon(
+                              Icons.settings,
+                              size: 16,
+                              color: theme.colorScheme.onSurfaceVariant
+                                  .withValues(alpha: 0.55),
+                            ),
                             onPressed: () => _showProfileManagerDialog(
                               context,
                               ambientToolbarEnabled.value,
@@ -538,13 +670,147 @@ class SettingsDialog extends HookWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  buildSectionHeading('Homepage'),
+                  TextField(
+                    controller: homepageController,
+                    focusNode: homepageFocusNode,
+                    style: theme.textTheme.bodyMedium?.copyWith(fontSize: 13),
+                    onSubmitted: (value) async {
+                      final text = value.trim();
+                      final resolved = text.isEmpty
+                          ? defaultHomepageUrl
+                          : UrlUtils.processUrl(text);
+                      if (UrlUtils.isValidUrl(resolved)) {
+                        homepage.value = resolved;
+                        await saveSetting(homepageKey, resolved);
+                        homepageFocusNode.unfocus();
+                      } else {
+                        homepageController.text = homepage.value ==
+                                defaultHomepageUrl
+                            ? ''
+                            : homepage.value ?? '';
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Invalid homepage URL')),
+                          );
+                        }
+                      }
+                    },
+                    decoration: InputDecoration(
+                      labelText: 'Homepage',
+                      isDense: true,
+                      filled: false,
+                      enabledBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(
+                          color: theme.colorScheme.onSurface
+                              .withValues(alpha: 0.18),
+                        ),
+                      ),
+                      focusedBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(
+                          color: theme.colorScheme.primary,
+                        ),
+                      ),
+                    ),
+                  ),
+                  buildSectionHeading('Appearance'),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 4, bottom: 8),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Theme',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ),
+                  MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: RadioListTile<AppThemeMode>(
+                      title: const Text('System'),
+                      value: AppThemeMode.system,
+                      groupValue: selectedTheme.value == AppThemeMode.adjust ? lastNonAdjustTheme.value : selectedTheme.value,
+                      dense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                      visualDensity: compactDensity,
+                      onChanged: (value) {
+                        if (value != null) {
+                          lastNonAdjustTheme.value = value;
+                          selectedTheme.value = value;
+                          onThemePreviewChanged?.call(value);
+                          saveSetting(themeModeKey, value.name);
+                        }
+                      },
+                    ),
+                  ),
+                  MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: RadioListTile<AppThemeMode>(
+                      title: const Text('Light'),
+                      value: AppThemeMode.light,
+                      groupValue: selectedTheme.value == AppThemeMode.adjust ? lastNonAdjustTheme.value : selectedTheme.value,
+                      dense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                      visualDensity: compactDensity,
+                      onChanged: (value) {
+                        if (value != null) {
+                          lastNonAdjustTheme.value = value;
+                          selectedTheme.value = value;
+                          onThemePreviewChanged?.call(value);
+                          saveSetting(themeModeKey, value.name);
+                        }
+                      },
+                    ),
+                  ),
+                  MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: RadioListTile<AppThemeMode>(
+                      title: const Text('Dark'),
+                      value: AppThemeMode.dark,
+                      groupValue: selectedTheme.value == AppThemeMode.adjust ? lastNonAdjustTheme.value : selectedTheme.value,
+                      dense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                      visualDensity: compactDensity,
+                      onChanged: (value) {
+                        if (value != null) {
+                          lastNonAdjustTheme.value = value;
+                          selectedTheme.value = value;
+                          onThemePreviewChanged?.call(value);
+                          saveSetting(themeModeKey, value.name);
+                        }
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: CheckboxListTile(
+                      title: const Text('Adjust page colors'),
+                      value: selectedTheme.value == AppThemeMode.adjust,
+                      dense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                      visualDensity: compactDensity,
+                      onChanged: (value) {
+                        final newMode = (value == true) ? AppThemeMode.adjust : lastNonAdjustTheme.value;
+                        selectedTheme.value = newMode;
+                        onThemePreviewChanged?.call(newMode);
+                        saveSetting(themeModeKey, newMode.name);
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 12),
                   MouseRegion(
                     cursor: SystemMouseCursors.click,
                     child: SwitchListTile(
                       title: const Text('Hide toolbar'),
                       value: hideAppBar.value,
-                      onChanged: (value) => hideAppBar.value = value,
+                      onChanged: (value) {
+                        hideAppBar.value = value;
+                        saveSetting(hideAppBarKey, value);
+                      },
                       hoverColor: Colors.transparent,
                     ),
                   ),
@@ -553,26 +819,35 @@ class SettingsDialog extends HookWidget {
                     child: SwitchListTile(
                       title: const Text('Hide URL'),
                       value: autoHideAddressBarEnabled.value,
-                      onChanged: (value) =>
-                          autoHideAddressBarEnabled.value = value,
+                      onChanged: (value) {
+                        autoHideAddressBarEnabled.value = value;
+                        saveSetting(autoHideAddressBarKey, value);
+                      },
                       hoverColor: Colors.transparent,
                     ),
                   ),
                   MouseRegion(
                     cursor: SystemMouseCursors.click,
                     child: SwitchListTile(
-                      title: const Text('Legacy UA'),
-                      value: useModernUserAgent.value,
-                      onChanged: (value) => useModernUserAgent.value = value,
+                      title: const Text('Tint toolbar with website color'),
+                      value: ambientToolbarEnabled.value,
+                      onChanged: (value) {
+                        ambientToolbarEnabled.value = value;
+                        saveSetting(ambientToolbarEnabledKey, value);
+                      },
                       hoverColor: Colors.transparent,
                     ),
                   ),
+                  buildSectionHeading('Privacy'),
                   MouseRegion(
                     cursor: SystemMouseCursors.click,
                     child: SwitchListTile(
                       title: const Text('Private'),
                       value: privateBrowsing.value,
-                      onChanged: (value) => privateBrowsing.value = value,
+                      onChanged: (value) {
+                        privateBrowsing.value = value;
+                        saveSetting(privateBrowsingKey, value);
+                      },
                       hoverColor: Colors.transparent,
                     ),
                   ),
@@ -581,7 +856,10 @@ class SettingsDialog extends HookWidget {
                     child: SwitchListTile(
                       title: const Text('Block ads'),
                       value: adBlocking.value,
-                      onChanged: (value) => adBlocking.value = value,
+                      onChanged: (value) {
+                        adBlocking.value = value;
+                        saveSetting(adBlockingKey, value);
+                      },
                       hoverColor: Colors.transparent,
                     ),
                   ),
@@ -590,7 +868,10 @@ class SettingsDialog extends HookWidget {
                     child: SwitchListTile(
                       title: const Text('Strict'),
                       value: strictMode.value,
-                      onChanged: (value) => strictMode.value = value,
+                      onChanged: (value) {
+                        strictMode.value = value;
+                        saveSetting(strictModeKey, value);
+                      },
                       hoverColor: Colors.transparent,
                     ),
                   ),
@@ -599,8 +880,10 @@ class SettingsDialog extends HookWidget {
                     child: SwitchListTile(
                       title: const Text('Passwords'),
                       value: passwordManagerEnabled.value,
-                      onChanged: (value) =>
-                          passwordManagerEnabled.value = value,
+                      onChanged: (value) {
+                        passwordManagerEnabled.value = value;
+                        saveSetting(passwordManagerEnabledKey, value);
+                      },
                       hoverColor: Colors.transparent,
                     ),
                   ),
@@ -625,39 +908,12 @@ class SettingsDialog extends HookWidget {
                   MouseRegion(
                     cursor: SystemMouseCursors.click,
                     child: SwitchListTile(
-                      title: const Text('Reorder tabs'),
-                      value: reorderableTabs.value,
-                      onChanged: (value) => reorderableTabs.value = value,
-                      hoverColor: Colors.transparent,
-                    ),
-                  ),
-                  MouseRegion(
-                    cursor: SystemMouseCursors.click,
-                    child: SwitchListTile(
-                      title: const Text('Favicon badge'),
-                      value: tabFaviconBadgeEnabled.value,
-                      onChanged: (value) =>
-                          tabFaviconBadgeEnabled.value = value,
-                      hoverColor: Colors.transparent,
-                    ),
-                  ),
-                  MouseRegion(
-                    cursor: SystemMouseCursors.click,
-                    child: SwitchListTile(
-                      title: const Text('AI suggestions'),
-                      value: aiSearchSuggestionsEnabled.value,
-                      onChanged: (value) =>
-                          aiSearchSuggestionsEnabled.value = value,
-                      hoverColor: Colors.transparent,
-                    ),
-                  ),
-                  MouseRegion(
-                    cursor: SystemMouseCursors.click,
-                    child: SwitchListTile(
-                      title: const Text('Erase suggestions'),
-                      value: urlAutocompleteSuggestionRemovalEnabled.value,
-                      onChanged: (value) =>
-                          urlAutocompleteSuggestionRemovalEnabled.value = value,
+                      title: const Text('Legacy UA'),
+                      value: useModernUserAgent.value,
+                      onChanged: (value) {
+                        useModernUserAgent.value = value;
+                        saveSetting(useModernUserAgentKey, value);
+                      },
                       hoverColor: Colors.transparent,
                     ),
                   ),
@@ -666,51 +922,64 @@ class SettingsDialog extends HookWidget {
                     child: SwitchListTile(
                       title: const Text('Advanced cache'),
                       value: advancedCacheEnabled.value,
-                      onChanged: (value) => advancedCacheEnabled.value = value,
+                      onChanged: (value) {
+                        advancedCacheEnabled.value = value;
+                        saveSetting(advancedCacheEnabledKey, value);
+                      },
+                      hoverColor: Colors.transparent,
+                    ),
+                  ),
+                  buildSectionHeading('Tabs'),
+                  MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: SwitchListTile(
+                      title: const Text('Reorderable tabs'),
+                      value: reorderableTabs.value,
+                      onChanged: (value) {
+                        reorderableTabs.value = value;
+                        saveSetting(reorderableTabsKey, value);
+                      },
                       hoverColor: Colors.transparent,
                     ),
                   ),
                   MouseRegion(
                     cursor: SystemMouseCursors.click,
                     child: SwitchListTile(
-                      title: const Text('Ambient'),
-                      value: ambientToolbarEnabled.value,
-                      onChanged: (value) => ambientToolbarEnabled.value = value,
+                      title: const Text('Favicon badge'),
+                      value: tabFaviconBadgeEnabled.value,
+                      onChanged: (value) {
+                        tabFaviconBadgeEnabled.value = value;
+                        saveSetting(tabFaviconBadgeEnabledKey, value);
+                      },
                       hoverColor: Colors.transparent,
                     ),
                   ),
-                  const SizedBox(height: 20),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: AppThemeMode.values.map((mode) {
-                      final isSelected = selectedTheme.value == mode;
-                      return Theme(
-                        data: theme.copyWith(
-                          splashFactory: NoSplash.splashFactory,
-                          highlightColor: Colors.transparent,
-                          hoverColor: Colors.transparent,
-                        ),
-                        child: ChoiceChip(
-                          label: Text(
-                            _themeLabel(mode),
-                            style: theme.textTheme.bodySmall
-                                ?.copyWith(fontSize: 12),
-                          ),
-                          selected: isSelected,
-                          showCheckmark: false,
-                          visualDensity: compactDensity,
-                          materialTapTargetSize:
-                              MaterialTapTargetSize.shrinkWrap,
-                          onSelected: (_) {
-                            selectedTheme.value = mode;
-                            onThemePreviewChanged?.call(mode);
-                          },
-                        ),
-                      );
-                    }).toList(),
+                  buildSectionHeading('AI'),
+                  MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: SwitchListTile(
+                      title: const Text('AI suggestions'),
+                      value: aiSearchSuggestionsEnabled.value,
+                      onChanged: (value) {
+                        aiSearchSuggestionsEnabled.value = value;
+                        saveSetting(aiSearchSuggestionsEnabledKey, value);
+                      },
+                      hoverColor: Colors.transparent,
+                    ),
                   ),
-                  const SizedBox(height: 20),
+                  MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: SwitchListTile(
+                      title: const Text('Erase suggestions'),
+                      value: urlAutocompleteSuggestionRemovalEnabled.value,
+                      onChanged: (value) {
+                        urlAutocompleteSuggestionRemovalEnabled.value = value;
+                        saveSetting(urlAutocompleteSuggestionRemovalEnabledKey, value);
+                      },
+                      hoverColor: Colors.transparent,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(
@@ -729,86 +998,51 @@ class SettingsDialog extends HookWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          children: [
-                            Text(
-                              'AI Chat',
-                              style: theme.textTheme.titleSmall
-                                  ?.copyWith(fontSize: 12),
-                            ),
-                            const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: aiAvailable
-                                    ? theme.colorScheme.primaryContainer
-                                    : theme.colorScheme.errorContainer,
-                                borderRadius: BorderRadius.circular(999),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    aiAvailable
-                                        ? Icons.verified_rounded
-                                        : Icons.warning_amber_rounded,
-                                    size: 12,
-                                    color: aiAvailable
-                                        ? theme.colorScheme.onPrimaryContainer
-                                        : theme.colorScheme.onErrorContainer,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    aiAvailable ? 'Ready' : 'Setup',
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      fontSize: 9,
-                                      fontWeight: FontWeight.w600,
-                                      color: aiAvailable
-                                          ? theme.colorScheme.onPrimaryContainer
-                                          : theme.colorScheme.onErrorContainer,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const Spacer(),
-                            MouseRegion(
-                              cursor: SystemMouseCursors.click,
-                              child: IconButton(
-                                key: const Key(
-                                    'settings.firebase_config_toggle'),
-                                visualDensity: compactDensity,
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(
-                                  minWidth: 32,
-                                  minHeight: 32,
+                        InkWell(
+                          key: const Key('settings.firebase_config_toggle'),
+                          onTap: () => showFirebaseConfig.value = !showFirebaseConfig.value,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: Row(
+                              children: [
+                                Text(
+                                  'AI Chat',
+                                  style: theme.textTheme.titleSmall
+                                      ?.copyWith(fontSize: 12),
                                 ),
-                                icon: Icon(
+                                const Spacer(),
+                                Text(
+                                  'Firebase Gemini',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    fontSize: 11,
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Icon(
                                   showFirebaseConfig.value
                                       ? Icons.expand_less
                                       : Icons.expand_more,
-                                  size: 18,
+                                  size: 16,
                                   color: theme.colorScheme.onSurfaceVariant,
                                 ),
-                                onPressed: () => showFirebaseConfig.value =
-                                    !showFirebaseConfig.value,
-                              ),
+                              ],
                             ),
-                          ],
+                          ),
                         ),
                         if (showFirebaseConfig.value) ...[
                           const SizedBox(height: 8),
                           TextField(
                             controller: firebaseApiKey,
+                            focusNode: firebaseApiKeyFocusNode,
                             obscureText: true,
                             style: theme.textTheme.bodyMedium
                                 ?.copyWith(fontSize: 9),
                             decoration: InputDecoration(
                               labelText: 'API Key',
-                              labelStyle: TextStyle(fontSize: 8),
+                              labelStyle: const TextStyle(fontSize: 8),
                               isDense: true,
-                              contentPadding: EdgeInsets.symmetric(
+                              contentPadding: const EdgeInsets.symmetric(
                                   horizontal: 6, vertical: 6),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(4),
@@ -831,14 +1065,15 @@ class SettingsDialog extends HookWidget {
                           const SizedBox(height: 4),
                           TextField(
                             controller: firebaseAppId,
+                            focusNode: firebaseAppIdFocusNode,
                             obscureText: true,
                             style: theme.textTheme.bodyMedium
                                 ?.copyWith(fontSize: 9),
                             decoration: InputDecoration(
                               labelText: 'App ID',
-                              labelStyle: TextStyle(fontSize: 8),
+                              labelStyle: const TextStyle(fontSize: 8),
                               isDense: true,
-                              contentPadding: EdgeInsets.symmetric(
+                              contentPadding: const EdgeInsets.symmetric(
                                   horizontal: 6, vertical: 6),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(4),
@@ -861,14 +1096,15 @@ class SettingsDialog extends HookWidget {
                           const SizedBox(height: 4),
                           TextField(
                             controller: firebaseSenderId,
+                            focusNode: firebaseSenderIdFocusNode,
                             obscureText: true,
                             style: theme.textTheme.bodyMedium
                                 ?.copyWith(fontSize: 9),
                             decoration: InputDecoration(
                               labelText: 'Sender ID',
-                              labelStyle: TextStyle(fontSize: 8),
+                              labelStyle: const TextStyle(fontSize: 8),
                               isDense: true,
-                              contentPadding: EdgeInsets.symmetric(
+                              contentPadding: const EdgeInsets.symmetric(
                                   horizontal: 6, vertical: 6),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(4),
@@ -891,14 +1127,15 @@ class SettingsDialog extends HookWidget {
                           const SizedBox(height: 4),
                           TextField(
                             controller: firebaseProjectId,
+                            focusNode: firebaseProjectIdFocusNode,
                             obscureText: true,
                             style: theme.textTheme.bodyMedium
                                 ?.copyWith(fontSize: 9),
                             decoration: InputDecoration(
                               labelText: 'Project ID',
-                              labelStyle: TextStyle(fontSize: 8),
+                              labelStyle: const TextStyle(fontSize: 8),
                               isDense: true,
-                              contentPadding: EdgeInsets.symmetric(
+                              contentPadding: const EdgeInsets.symmetric(
                                   horizontal: 6, vertical: 6),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(4),
@@ -921,14 +1158,15 @@ class SettingsDialog extends HookWidget {
                           const SizedBox(height: 4),
                           TextField(
                             controller: firebaseStorageBucket,
+                            focusNode: firebaseStorageBucketFocusNode,
                             obscureText: true,
                             style: theme.textTheme.bodyMedium
                                 ?.copyWith(fontSize: 9),
                             decoration: InputDecoration(
-                              labelText: 'Storage',
-                              labelStyle: TextStyle(fontSize: 8),
+                              labelText: 'Storage Bucket',
+                              labelStyle: const TextStyle(fontSize: 8),
                               isDense: true,
-                              contentPadding: EdgeInsets.symmetric(
+                              contentPadding: const EdgeInsets.symmetric(
                                   horizontal: 6, vertical: 6),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(4),
@@ -952,279 +1190,175 @@ class SettingsDialog extends HookWidget {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  buildSectionHeading('Updates'),
                   ListTile(
+                    dense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 4),
                     title: Text(
                       effectiveUpdateInfo != null
-                          ? 'v${effectiveUpdateInfo.version}'
-                          : 'Updates',
-                      style: theme.textTheme.bodyMedium,
+                          ? 'New Version Available: v${effectiveUpdateInfo.version}'
+                          : 'Version ${currentAppVersion.value}',
+                      style: effectiveUpdateInfo != null
+                          ? theme.textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: theme.colorScheme.primary,
+                            )
+                          : theme.textTheme.bodyMedium,
                     ),
+                    subtitle: effectiveUpdateInfo != null
+                        ? (downloadProgress.value != null
+                            ? Padding(
+                                padding: const EdgeInsets.only(top: 8.0),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(2),
+                                  child: LinearProgressIndicator(
+                                    value: downloadProgress.value,
+                                    minHeight: 3,
+                                  ),
+                                ),
+                              )
+                            : const Text('An update is ready to install.'))
+                        : Text(isCheckingUpdate.value ? 'Checking for updates...' : 'Up to date'),
                     trailing: effectiveUpdateInfo != null
-                        ? Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: theme.colorScheme.primaryContainer,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              'Update',
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: theme.colorScheme.onPrimaryContainer,
-                              ),
-                            ),
-                          )
-                        : RotationTransition(
-                            turns: refreshIconController,
-                            child: IconButton(
-                              icon: const Icon(Icons.refresh),
-                              onPressed:
-                                  isCheckingUpdate.value ? null : checkUpdate,
-                            ),
-                          ),
+                        ? (downloadProgress.value != null
+                            ? Text(
+                                '${(downloadProgress.value! * 100).toInt()}%',
+                                style: theme.textTheme.bodySmall,
+                              )
+                            : OutlinedButton(
+                                onPressed: () => handleUpdate(effectiveUpdateInfo),
+                                style: OutlinedButton.styleFrom(
+                                  visualDensity: VisualDensity.compact,
+                                ),
+                                child: const Text('Install'),
+                              ))
+                        : (isCheckingUpdate.value
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : OutlinedButton(
+                                onPressed: checkUpdate,
+                                style: OutlinedButton.styleFrom(
+                                  visualDensity: VisualDensity.compact,
+                                ),
+                                child: const Text('Check for updates'),
+                              )),
                   ),
-                  const SizedBox(height: 16),
-                  MouseRegion(
-                    cursor: SystemMouseCursors.click,
-                    child: GestureDetector(
-                      onTap: () {
-                        Navigator.of(context).pop(false);
-                        onOpenHelp?.call();
-                      },
-                      child: Column(
-                        children: [
-                          Image.asset(
-                            'assets/icons/menu_bar_icon.png',
-                            width: 24,
-                            height: 24,
-                            errorBuilder: (context, error, stackTrace) =>
-                                const Icon(Icons.menu, size: 24),
+                  if (onClearAllData != null) ...[
+                    buildSectionHeading('Danger Zone'),
+                    MouseRegion(
+                      cursor: SystemMouseCursors.click,
+                      child: ListTile(
+                        dense: true,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                        leading: Icon(
+                          Icons.warning_amber_rounded,
+                          color: theme.colorScheme.error,
+                          size: 20,
+                        ),
+                        title: Text(
+                          'Reset settings & data',
+                          style: TextStyle(
+                            color: theme.colorScheme.error,
+                            fontWeight: FontWeight.w500,
                           ),
-                          const SizedBox(height: 4),
-                        ],
+                        ),
+                        subtitle: const Text('Erase settings, passwords, caches, and profiles'),
+                        onTap: () async {
+                          final confirm = await showDialog<bool?>(
+                            context: context,
+                            builder: (dialogContext) {
+                              bool factoryReset = false;
+                              return Theme(
+                                data: theme.copyWith(
+                                  splashFactory: NoSplash.splashFactory,
+                                  hoverColor: Colors.transparent,
+                                ),
+                                child: StatefulBuilder(
+                                  builder: (dialogContext, setState) => AlertDialog(
+                                    title: Text(
+                                      'Reset Settings & Data',
+                                      style: theme.textTheme.titleSmall
+                                          ?.copyWith(fontSize: 15),
+                                    ),
+                                    content: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'This will clear all cached data, saved passwords, settings, and user profiles.',
+                                          style: theme.textTheme.bodySmall
+                                              ?.copyWith(fontSize: 12),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Row(
+                                          children: [
+                                            MouseRegion(
+                                              cursor: SystemMouseCursors.click,
+                                              child: Checkbox(
+                                                value: factoryReset,
+                                                onChanged: (v) {
+                                                  setState(() => factoryReset = v ?? false);
+                                                },
+                                                overlayColor: WidgetStateProperty.all(
+                                                    Colors.transparent),
+                                                materialTapTargetSize:
+                                                    MaterialTapTargetSize.shrinkWrap,
+                                              ),
+                                            ),
+                                            Expanded(
+                                              child: Text(
+                                                'Factory reset (erase all profiles)',
+                                                style: theme.textTheme.bodySmall
+                                                    ?.copyWith(fontSize: 12),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 4),
+                                        const SizedBox.shrink(),
+                                      ],
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () =>
+                                            Navigator.of(dialogContext).pop(null),
+                                        style: ButtonStyle(
+                                          overlayColor:
+                                              WidgetStateProperty.all(Colors.transparent),
+                                        ),
+                                        child: const Text('Cancel'),
+                                      ),
+                                      FilledButton(
+                                        onPressed: () =>
+                                            Navigator.of(dialogContext).pop(factoryReset),
+                                        style: ButtonStyle(
+                                          overlayColor:
+                                              WidgetStateProperty.all(Colors.transparent),
+                                        ),
+                                        child: const Text('Reset'),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          );
+                          if (confirm != null) {
+                            onClearAllData?.call(confirm);
+                          }
+                        },
                       ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),
           ),
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(false),
-          style: TextButton.styleFrom(
-            visualDensity: VisualDensity.compact,
-          ),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed: () async {
-            final homepageText = homepageController.text.trim();
-            String homepageToSave;
-            if (homepageText.isEmpty) {
-              homepageToSave = defaultHomepageUrl;
-            } else {
-              final processed = UrlUtils.processUrl(homepageText);
-              if (!UrlUtils.isValidUrl(processed)) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Invalid homepage URL')),
-                  );
-                }
-                return;
-              }
-              homepageToSave = processed;
-            }
-            final prefs = await SharedPreferences.getInstance();
-            String scopedKey(String key) =>
-                profileManager.getScopedStorageKey(key);
-
-            final oldApiKey =
-                loadedFirebaseConfig.value[firebaseApiKeyPref] ?? '';
-            final oldAppId =
-                loadedFirebaseConfig.value[firebaseAppIdPref] ?? '';
-            final oldSenderId =
-                loadedFirebaseConfig.value[firebaseSenderIdPref] ?? '';
-            final oldProjectId =
-                loadedFirebaseConfig.value[firebaseProjectIdPref] ?? '';
-            final oldStorageBucket =
-                loadedFirebaseConfig.value[firebaseStorageBucketPref] ?? '';
-
-            final newApiKey = firebaseApiKey.text.trim();
-            final newAppId = firebaseAppId.text.trim();
-            final newSenderId = firebaseSenderId.text.trim();
-            final newProjectId = firebaseProjectId.text.trim();
-            final newStorageBucket = firebaseStorageBucket.text.trim();
-
-            final firebaseChanged = oldApiKey != newApiKey ||
-                oldAppId != newAppId ||
-                oldSenderId != newSenderId ||
-                oldProjectId != newProjectId ||
-                oldStorageBucket != newStorageBucket;
-
-            await prefs.setString(scopedKey(homepageKey), homepageToSave);
-            await prefs.setBool(scopedKey(hideAppBarKey), hideAppBar.value);
-            await prefs.setBool(
-                scopedKey(useModernUserAgentKey), useModernUserAgent.value);
-            await prefs.setBool(
-                scopedKey(privateBrowsingKey), privateBrowsing.value);
-            await prefs.setBool(scopedKey(adBlockingKey), adBlocking.value);
-            await prefs.setBool(scopedKey(strictModeKey), strictMode.value);
-            await prefs.setBool(scopedKey(passwordManagerEnabledKey),
-                passwordManagerEnabled.value);
-            await prefs.setBool(
-                scopedKey(reorderableTabsKey), reorderableTabs.value);
-            await prefs.setBool(
-              scopedKey(tabFaviconBadgeEnabledKey),
-              tabFaviconBadgeEnabled.value,
-            );
-            await prefs.setBool(scopedKey(aiSearchSuggestionsEnabledKey),
-                aiSearchSuggestionsEnabled.value);
-            await prefs.setBool(
-                scopedKey(advancedCacheEnabledKey), advancedCacheEnabled.value);
-            await prefs.setBool(scopedKey(ambientToolbarEnabledKey),
-                ambientToolbarEnabled.value);
-            await prefs.setBool(
-              scopedKey(urlAutocompleteSuggestionRemovalEnabledKey),
-              urlAutocompleteSuggestionRemovalEnabled.value,
-            );
-            await prefs.setBool(
-              scopedKey(autoHideAddressBarKey),
-              autoHideAddressBarEnabled.value,
-            );
-            await prefs.setString(
-                scopedKey(themeModeKey), selectedTheme.value.name);
-
-            try {
-              await FirebaseConfigStore.saveSettingsConfig(
-                apiKey: newApiKey,
-                appId: newAppId,
-                senderId: newSenderId,
-                projectId: newProjectId,
-                storageBucket: newStorageBucket,
-              );
-            } catch (_) {
-            }
-
-            onSettingsChanged?.call();
-            if (privateBrowsing.value &&
-                originalPrivateBrowsing.value == false) {
-              onClearCaches?.call();
-            }
-
-            final message = firebaseChanged
-                ? 'Settings saved — restart required for Firebase changes'
-                : 'Settings saved';
-
-            if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(message)),
-              );
-              Navigator.of(context).pop(true);
-            }
-          },
-          style: FilledButton.styleFrom(
-            visualDensity: VisualDensity.compact,
-          ),
-          child: const Text('Save'),
-        ),
-        if (onClearAllData != null)
-          TextButton(
-            onPressed: () async {
-              final theme = Theme.of(context);
-              final confirm = await showDialog<bool?>(
-                context: context,
-                builder: (dialogContext) {
-                  bool factoryReset = false;
-                  return Theme(
-                    data: theme.copyWith(
-                      splashFactory: NoSplash.splashFactory,
-                      hoverColor: Colors.transparent,
-                    ),
-                    child: StatefulBuilder(
-                      builder: (dialogContext, setState) => AlertDialog(
-                        title: Text(
-                          'Clear All Data',
-                          style: theme.textTheme.titleSmall
-                              ?.copyWith(fontSize: 15),
-                        ),
-                        content: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'This will clear all cached data, saved passwords, and settings.',
-                              style: theme.textTheme.bodySmall
-                                  ?.copyWith(fontSize: 12),
-                            ),
-                            const SizedBox(height: 8),
-                            Row(
-                              children: [
-                                MouseRegion(
-                                  cursor: SystemMouseCursors.click,
-                                  child: Checkbox(
-                                    value: factoryReset,
-                                    onChanged: (v) {
-                                      setState(() => factoryReset = v ?? false);
-                                    },
-                                    overlayColor: WidgetStateProperty.all(
-                                        Colors.transparent),
-                                    materialTapTargetSize:
-                                        MaterialTapTargetSize.shrinkWrap,
-                                  ),
-                                ),
-                                Expanded(
-                                  child: Text(
-                                    'Factory reset (erase all profiles)',
-                                    style: theme.textTheme.bodySmall
-                                        ?.copyWith(fontSize: 12),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            const SizedBox.shrink(),
-                          ],
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: () =>
-                                Navigator.of(dialogContext).pop(null),
-                            style: ButtonStyle(
-                              overlayColor:
-                                  WidgetStateProperty.all(Colors.transparent),
-                            ),
-                            child: const Text('Cancel'),
-                          ),
-                          FilledButton(
-                            onPressed: () =>
-                                Navigator.of(dialogContext).pop(factoryReset),
-                            style: ButtonStyle(
-                              overlayColor:
-                                  WidgetStateProperty.all(Colors.transparent),
-                            ),
-                            child: const Text('Clear'),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              );
-              if (confirm != null) {
-                onClearAllData?.call(confirm);
-              }
-            },
-            style: TextButton.styleFrom(
-              visualDensity: VisualDensity.compact,
-              foregroundColor: theme.colorScheme.onSurface.withValues(alpha: 0.55),
-            ),
-            child: Text('Clear'),
-          ),
-      ],
     );
   }
 

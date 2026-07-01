@@ -1,12 +1,12 @@
-| `lint` | `flutter` |
-|:--------- |:------------ |
-| [![Lint](https://github.com/palmshed/via/actions/workflows/lint.yml/badge.svg)](https://github.com/palmshed/via/actions/workflows/lint.yml) | [![Flutter](https://github.com/palmshed/via/actions/workflows/flutter.yml/badge.svg)](https://github.com/palmshed/via/actions/workflows/flutter.yml) |
-
 # Via
 
-![Screenshot](assets/screenshot.png)
+A Flutter desktop browser for macOS, Windows, and Linux.
 
-Flutter desktop browser with tabs, bookmarks, history, and encrypted settings storage. The app runs on macOS, Windows, and Linux.
+Features include tabbed browsing, bookmarks, history, encrypted local storage, and profile-based settings.
+
+## Design principles
+
+Via favors small, focused components with BrowserPage acting as the coordinator. New functionality should extend existing services or widgets before adding responsibilities to the coordinator.
 
 ## Quick start
 
@@ -14,43 +14,41 @@ Clone the repo, install dependencies, and launch the macOS bundle.
 
 ```bash
 git clone https://github.com/palmshed/via.git
-cd browser
+cd via
 flutter pub get
-cp .env.example .env  # populate Firebase values before running
+cp .env.example .env
 flutterfire configure --platforms macos
-git checkout -- lib/firebase_options.dart  # keep runtime env vars
+git checkout -- lib/firebase_options.dart
 flutter run -d macos
 ```
 
 Do not commit `.env`; it contains private Firebase keys.
 
-## Firebase configuration
+## Firebase
 
-Firebase values are read from `.env` at runtime. The generated `lib/firebase_options.dart` stays under version control and references `const String` placeholders.
+Via reads Firebase configuration from `.env`.
 
-<details>
-<summary>regenerate platform files after changing Firebase config</summary>
+```bash
+cp .env.example .env
+flutterfire configure --platforms macos
+git checkout -- lib/firebase_options.dart
+```
 
-1. Update `.env` with the new Firebase project credentials.
-2. Run `flutterfire configure --platforms macos` to refresh the generated files.
-3. Run `git checkout -- lib/firebase_options.dart` to keep the environment-variable version.
-4. Restart `flutter run` to pick up the new settings.
-
-macOS also needs `macos/Runner/GoogleService-Info.plist`. `flutterfire configure` creates it, or you can copy it from the Firebase console. Keep `.env.example` as a template for local `.env` files.
-
-</details>
+If you change Firebase projects later, rerun `flutterfire configure`.
 
 ## Development
 
-- Requires Flutter 3.44.0 and the desktop toolchains for the target platforms.
-- Run `./check.sh` to apply formatting, lint, and build checks shared across platforms.
-- Build the signed macOS app with `flutter build macos` and adjust profiles with Xcode if needed.
-- If you hit missing Firebase credentials while targeting macOS, double-check that `.env` is populated before launching the app.
+Requirements:
+- Flutter 3.44.0
+- Desktop toolchains
 
-## Release automation
-
-[Release 1.28.9](https://github.com/palmshed/via/releases/tag/desktop/app-1.28.9) was the last desktop release published directly by GitHub Actions.
-Current workflow automation uses the [browser-dart](https://github.com/apps/browser-dart) GitHub App where elevated repository access is needed, including release and project automation.
+Useful commands:
+```bash
+./check.sh
+flutter analyze
+flutter test
+flutter build macos
+```
 
 ## Keyboard shortcuts
 
@@ -87,25 +85,17 @@ xattr -rd com.apple.quarantine /Applications/Via.app
 
 Only run the command if you trust the build source.
 
-## Need help?
+## Documentation
 
-- `docs/` contains focused project notes.
+- `docs/` contains focused project notes, including [Releasing](docs/releasing.md) and [Repository Layout](docs/repository.md).
 - `.codex/README.md` documents toolchains, skills, and local workflows.
 - Report bugs or feature requests via [GitHub Issues](https://github.com/palmshed/via/issues).
-
-## Generated files
-
-`.gitattributes` marks generated files so GitHub hides them from diffs and stats. Common generated paths include:
-
-- `build/**` and `.dart_tool/**`
-- `lib/**/*.freezed.dart` and `lib/**/*.g.dart`
-- Platform artifacts such as `android/**`, `ios/**`, `macos/**`, `linux/**`, and `windows/**`
-
-When a specific file should be shown in diffs, add `-linguist-generated` to `.gitattributes` for that path.
 
 ## Contribute
 
 Fork, create a branch, run the checks, then open a pull request with a short conventional commit-style summary.
+
+Please discuss larger architectural changes before opening a pull request.
 
 ## License
 

@@ -15,7 +15,6 @@ class BrowserNavigationControls extends StatelessWidget {
     required this.isMobilePlatform,
     required this.onBackTap,
     required this.onForwardTap,
-    required this.onRefreshTap,
     required this.onHomeTap,
     this.showHomeButton = false,
   });
@@ -24,7 +23,6 @@ class BrowserNavigationControls extends StatelessWidget {
   final bool isMobilePlatform;
   final VoidCallback onBackTap;
   final VoidCallback onForwardTap;
-  final VoidCallback onRefreshTap;
   final VoidCallback onHomeTap;
   final bool showHomeButton;
 
@@ -48,13 +46,6 @@ class BrowserNavigationControls extends StatelessWidget {
           color: toolbarForeground,
           padding: buttonPadding,
           onTap: onForwardTap,
-        ),
-        ClickableIcon(
-          icon: Icons.refresh,
-          size: 18,
-          color: toolbarForeground,
-          padding: buttonPadding,
-          onTap: onRefreshTap,
         ),
         if (showHomeButton)
           ClickableIcon(
