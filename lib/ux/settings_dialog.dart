@@ -152,9 +152,11 @@ class SettingsDialog extends HookWidget {
         downloadProgress.value = null;
 
         if (file != null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Download complete. Installing...')),
-          );
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Download complete. Installing...')),
+            );
+          }
 
           if (Platform.isMacOS) {
             try {
@@ -209,12 +211,14 @@ class SettingsDialog extends HookWidget {
 
               await Process.run('open', ['/Applications/$appName']);
 
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Update installed. Restarting...'),
-                  duration: Duration(seconds: 5),
-                ),
-              );
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Update installed. Restarting...'),
+                    duration: Duration(seconds: 5),
+                  ),
+                );
+              }
 
               exit(0);
             } catch (e) {
@@ -233,50 +237,62 @@ class SettingsDialog extends HookWidget {
           } else if (Platform.isWindows) {
             try {
               await Process.run(file.path, []);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text(
-                      'Update installer launched. Follow the prompts to complete installation.'),
-                  duration: Duration(seconds: 10),
-                ),
-              );
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                        'Update installer launched. Follow the prompts to complete installation.'),
+                    duration: Duration(seconds: 10),
+                  ),
+                );
+              }
             } catch (e) {
               debugPrint('Failed to launch installer: $e');
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                    content: Text(
-                        'Update downloaded to: ${file.path}. Run the installer manually.')),
-              );
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                      content: Text(
+                          'Update downloaded to: ${file.path}. Run the installer manually.')),
+                );
+              }
             }
           } else if (Platform.isLinux) {
             try {
               await Process.run('xdg-open', [file.path]);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text(
-                      'Update package opened. Use your package manager to install it.'),
-                  duration: Duration(seconds: 10),
-                ),
-              );
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                        'Update package opened. Use your package manager to install it.'),
+                    duration: Duration(seconds: 10),
+                  ),
+                );
+              }
             } catch (e) {
               debugPrint('Failed to open package: $e');
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                      content: Text(
+                          'Update downloaded to: ${file.path}. Install manually with your package manager.')),
+                );
+              }
+            }
+          } else {
+            if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                     content: Text(
-                        'Update downloaded to: ${file.path}. Install manually with your package manager.')),
+                        'Update downloaded to: ${file.path}. Please install manually.')),
               );
             }
-          } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                  content: Text(
-                      'Update downloaded to: ${file.path}. Please install manually.')),
-            );
           }
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Failed to download update')),
-          );
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Failed to download update')),
+            );
+          }
         }
       }
     }
@@ -290,16 +306,20 @@ class SettingsDialog extends HookWidget {
         if (info != null) {
           await handleUpdate(info);
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Browser is up to date')),
-          );
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Browser is up to date')),
+            );
+          }
         }
       } catch (e) {
         debugPrint('Update check failed: $e');
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Update check failed. Please try again later.')),
-        );
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content: Text('Update check failed. Please try again later.')),
+          );
+        }
       } finally {
         isCheckingUpdate.value = false;
       }
@@ -1009,9 +1029,11 @@ class SettingsDialog extends HookWidget {
             } else {
               final processed = UrlUtils.processUrl(homepageText);
               if (!UrlUtils.isValidUrl(processed)) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Invalid homepage URL')),
-                );
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Invalid homepage URL')),
+                  );
+                }
                 return;
               }
               homepageToSave = processed;
@@ -1097,10 +1119,12 @@ class SettingsDialog extends HookWidget {
                 ? 'Settings saved — restart required for Firebase changes'
                 : 'Settings saved';
 
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(message)),
-            );
-            Navigator.of(context).pop(true);
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(message)),
+              );
+              Navigator.of(context).pop(true);
+            }
           },
           style: FilledButton.styleFrom(
             visualDensity: VisualDensity.compact,
@@ -1454,8 +1478,10 @@ class _ProfileManagerDialogState extends State<_ProfileManagerDialog> {
                       nameController.text.trim(),
                       colorValue: colorValue,
                     );
-                    if (mounted) {
+                    if (context.mounted) {
                       Navigator.pop(context);
+                    }
+                    if (mounted) {
                       setState(() {});
                     }
                   }
@@ -1503,8 +1529,10 @@ class _ProfileManagerDialogState extends State<_ProfileManagerDialog> {
               onPressed: () async {
                 await profileManager.deleteProfile(profile.id);
                 widget.onProfileChanged();
-                if (mounted) {
+                if (context.mounted) {
                   Navigator.pop(context);
+                }
+                if (mounted) {
                   setState(() {});
                 }
               },
