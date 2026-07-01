@@ -113,7 +113,20 @@ class BrowserOverflowMenu extends StatelessWidget {
         onMenuHoverChanged(false);
         onOpenChanged(false);
       },
-      menuChildren: _buildMenuEntries(context),
+      // Wrap the menu children in a MouseRegion so hover events over the
+      // menu surface (not just individual items) are reported. This prevents
+      // the menu from being closed when moving the mouse from the trigger to
+      // the menu (small gaps between widgets).
+      menuChildren: [
+        MouseRegion(
+          onEnter: (_) => onMenuHoverChanged(true),
+          onExit: (_) => onMenuHoverChanged(false),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: _buildMenuEntries(context),
+          ),
+        ),
+      ],
       builder: (context, menuController, child) {
         return MouseRegion(
           onEnter: (_) => onTriggerHoverChanged(true),
