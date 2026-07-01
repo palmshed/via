@@ -9,7 +9,7 @@ import 'package:browser/features/profile_manager.dart';
 import 'package:browser/features/theme_utils.dart';
 import 'package:browser/main.dart';
 import 'package:browser/models/user_profile.dart';
-import 'package:browser/ux/browser_page.dart';
+import 'package:browser/ux/settings_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';

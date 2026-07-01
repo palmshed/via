@@ -5,7 +5,7 @@
 // found in the LICENSE file.
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:browser/ux/browser_page.dart';
+import 'package:browser/utils/url_utils.dart';
 
 void main() {
   group('URL Processing', () {

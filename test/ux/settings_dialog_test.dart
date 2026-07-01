@@ -7,7 +7,7 @@
 import 'package:browser/constants.dart';
 import 'package:browser/features/theme_utils.dart';
 import 'package:browser/main.dart' show profileManager;
-import 'package:browser/ux/browser_page.dart';
+import 'package:browser/ux/settings_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
