@@ -24,7 +24,7 @@ jobs:
       app-name: 'browser'
       base-branch: 'main'
     secrets:
-      github-app-id: ${{ secrets.VIA_APP_CLIENT_ID }}
+      github-app-id: ${{ secrets.VIA_APP_ID }}
       github-app-private-key: ${{ secrets.VIA_APP_PRIVATE_KEY }}
       macos-code-sign-identity: ${{ secrets.MACOS_CODE_SIGN_IDENTITY }}
       macos-certificate: ${{ secrets.MACOS_CERTIFICATE }}
