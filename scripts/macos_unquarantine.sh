@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-APP_PATH="${1:-/Applications/Browser.app}"
+APP_PATH="${1:-/Applications/Via.app}"
 
 if [[ ! -d "${APP_PATH}" ]]; then
   echo "App bundle not found: ${APP_PATH}" >&2

@@ -1,7 +1,7 @@
 #!/bin/bash
 # SPDX-License-Identifier: MIT
 #
-# Copyright 2026 bniladridas. All rights reserved.
+# Copyright 2026 Palmshed. All rights reserved.
 # Use of this source code is governed by a MIT license that can be
 # found in the LICENSE file.
 
@@ -11,8 +11,8 @@ test_target="integration_test/"
 artifact_dir="${E2E_ARTIFACT_DIR:-build/e2e-artifacts}"
 app_bundle_id="${E2E_APP_BUNDLE_ID:-com.bniladridas.browser}"
 legacy_app_bundle_id="com.example.browser"
-app_process_name="${E2E_APP_PROCESS_NAME:-Browser}"
-legacy_app_process_name="browser"
+app_process_name="${E2E_APP_PROCESS_NAME:-Via}"
+legacy_app_process_name="Via"
 max_startup_retries="${E2E_STARTUP_RETRIES:-3}"
 mkdir -p "$artifact_dir"
 

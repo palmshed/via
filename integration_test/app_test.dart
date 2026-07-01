@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 //
-// Copyright 2026 bniladridas. All rights reserved.
+// Copyright 2026 Palmshed. All rights reserved.
 // Use of this source code is governed by a MIT license that can be
 // found in the LICENSE file.
 
@@ -31,6 +31,10 @@ Future<void> _launchApp(WidgetTester tester,
     await prefs.setBool(reorderableTabsKey, false);
     await prefs.setBool(aiSearchSuggestionsEnabledKey, aiSuggestionsEnabled);
     await prefs.setBool(advancedCacheEnabledKey, false);
+    await prefs.setBool(ambientToolbarEnabledKey, false);
+    await prefs.setBool(tabFaviconBadgeEnabledKey, false);
+    await prefs.setBool(urlAutocompleteSuggestionRemovalEnabledKey, false);
+    await prefs.setBool(autoHideAddressBarKey, false);
     await prefs.setString(themeModeKey, AppThemeMode.system.name);
     final info = await PackageInfo.fromPlatform();
     await prefs.setString(whatsNewSeenVersionKey, info.version.trim());
@@ -179,7 +183,7 @@ void main() {
       await _launchApp(tester);
 
       // Enter URL with special characters
-      const specialUrl = 'https://github.com/bniladridas/browser?tab=readme';
+      const specialUrl = 'https://github.com/Palmshed/browser?tab=readme';
       expect(urlFieldFinder(), findsOneWidget);
       await tester.enterText(urlFieldFinder(), specialUrl);
       await tester.testTextInput.receiveAction(TextInputAction.done);
@@ -208,13 +212,9 @@ void main() {
         enabled: true,
       );
 
-      // Save settings
-      await tester.tap(find.text('Save'));
-      // Use pump with duration instead of pumpAndSettle to avoid infinite wait
-      await tester.pump(const Duration(seconds: 2));
-
-      // Should show saved snackbar
-      expect(find.text('Settings saved'), findsOneWidget);
+      // Close settings
+      await tester.tapAt(const Offset(100, 300));
+      await tester.pumpAndSettle();
     }, timeout: testTimeout);
 
     testWidgets('Settings dialog and user agent toggle',
@@ -240,12 +240,9 @@ void main() {
         enabled: true,
       );
 
-      // Save settings
-      await tester.tap(find.text('Save'));
+      // Close settings
+      await tester.tapAt(const Offset(100, 300));
       await tester.pumpAndSettle();
-
-      // Should show saved snackbar
-      expect(find.text('Settings saved'), findsOneWidget);
     }, timeout: testTimeout);
 
     testWidgets('New feature toggles in settings', (WidgetTester tester) async {
@@ -262,7 +259,7 @@ void main() {
       expect(find.text('Block ads'), findsOneWidget);
       expect(find.text('Erase suggestions'), findsOneWidget);
       expect(find.text('Hide URL'), findsOneWidget);
-      expect(find.byType(ChoiceChip), findsWidgets);
+      expect(find.byType(RadioListTile<AppThemeMode>), findsWidgets);
 
       // Toggle private browsing
       await setSwitchTile(
@@ -286,28 +283,26 @@ void main() {
       );
 
       // Change theme to dark
-      final darkThemeChip = find.widgetWithText(ChoiceChip, 'dark').first;
+      final darkThemeTile =
+          find.widgetWithText(RadioListTile<AppThemeMode>, 'Dark');
       final settingsScrollable = find.descendant(
         of: find.byType(AlertDialog),
         matching: find.byType(Scrollable),
       );
       if (settingsScrollable.evaluate().isNotEmpty) {
         await tester.scrollUntilVisible(
-          darkThemeChip,
+          darkThemeTile,
           120,
           scrollable: settingsScrollable.first,
         );
       }
-      expect(darkThemeChip, findsOneWidget);
-      await tester.tap(darkThemeChip, warnIfMissed: false);
+      expect(darkThemeTile, findsOneWidget);
+      await tester.tap(darkThemeTile, warnIfMissed: false);
       await tester.pumpAndSettle();
 
-      // Save settings.
-      await tester.tap(find.text('Save'));
+      // Close settings.
+      await tester.tapAt(const Offset(100, 300));
       await tester.pumpAndSettle();
-
-      // Should show saved snackbar.
-      expect(find.text('Settings saved'), findsOneWidget);
 
       // Re-open settings and verify persisted value.
       await openOverflowMenu(tester);
@@ -327,9 +322,8 @@ void main() {
 
       await setSwitchTile(tester, title: 'Hide URL', enabled: true);
 
-      await tester.tap(find.text('Save'));
+      await tester.tapAt(const Offset(100, 300));
       await tester.pumpAndSettle();
-      expect(find.text('Settings saved'), findsOneWidget);
 
       await openOverflowMenu(tester);
       await tester.pumpAndSettle();
@@ -337,7 +331,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(readSwitchTileValue(tester, 'Hide URL'), isTrue);
-      await tester.tap(find.text('Cancel'), warnIfMissed: false);
+      await tester.tapAt(const Offset(100, 300));
       await tester.pumpAndSettle();
     }, timeout: testTimeout);
 
@@ -510,7 +504,7 @@ void main() {
       await tester.enterText(appIdField, 'test-app-id');
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Save'));
+      await tester.tapAt(const Offset(100, 300));
       await tester.pumpAndSettle();
 
       // Reopen settings and verify the values are persisted for the UI.
@@ -551,7 +545,7 @@ void main() {
       );
       expect(reopenedApiKeyField.controller?.text, 'test-api-key');
       expect(reopenedAppIdField.controller?.text, 'test-app-id');
-      await tester.tap(find.text('Cancel'), warnIfMissed: false);
+      await tester.tapAt(const Offset(100, 300));
       await tester.pumpAndSettle();
     }, timeout: testTimeout);
 
@@ -569,12 +563,12 @@ void main() {
         matching: find.byType(Scrollable),
       );
       await tester.scrollUntilVisible(
-        find.text('Profile'),
+        find.text('Profile').first,
         100,
         scrollable: settingsScrollable.first,
       );
 
-      expect(find.text('Profile'), findsOneWidget);
+      expect(find.text('Profile'), findsWidgets);
     }, timeout: testTimeout);
 
     testWidgets('Profile manager opens and displays profiles',

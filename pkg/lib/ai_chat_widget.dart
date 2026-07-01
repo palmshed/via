@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 //
-// Copyright 2026 bniladridas. All rights reserved.
+// Copyright 2026 Palmshed. All rights reserved.
 // Use of this source code is governed by a MIT license that can be
 // found in the LICENSE file.
 
@@ -248,6 +248,18 @@ class AiChatWidget extends HookWidget {
         ? (screenSize.height - 24).clamp(520.0, 780.0)
         : (screenSize.height - 110).clamp(420.0, 620.0);
 
+    final textVal = useValueListenable(controller);
+    final hasText = textVal.text.trim().isNotEmpty;
+    final isFocused = useState(false);
+
+    useEffect(() {
+      void listener() {
+        isFocused.value = composerFocusNode.hasFocus;
+      }
+      composerFocusNode.addListener(listener);
+      return () => composerFocusNode.removeListener(listener);
+    }, [composerFocusNode]);
+
     return Dialog(
       insetPadding: EdgeInsets.symmetric(
         horizontal: isCompact ? 12 : 24,
@@ -325,34 +337,46 @@ class AiChatWidget extends HookWidget {
                       ),
                     ),
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(18, 14, 14, 12),
+                      padding: const EdgeInsets.fromLTRB(20, 16, 16, 16),
                       child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  contextLabel ?? 'This view',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                  'AI Assistant',
+                                  style: theme.textTheme.titleSmall?.copyWith(
                                     color: colorScheme.onSurface,
                                     fontSize: 14,
                                     fontWeight: FontWeight.w600,
                                     height: 1.15,
                                   ),
                                 ),
+                                if (contextLabel != null) ...[
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    contextLabel,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: colorScheme.onSurfaceVariant.withValues(alpha: 0.65),
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                ],
                               ],
                             ),
                           ),
                           IconButton(
                             onPressed: () => Navigator.of(context).pop(),
-                            hoverColor: Colors.transparent,
-                            highlightColor: Colors.transparent,
-                            splashColor: Colors.transparent,
-                            icon: const Icon(Icons.close_rounded),
+                            constraints: const BoxConstraints(),
+                            padding: EdgeInsets.zero,
+                            icon: Icon(
+                              Icons.close_rounded,
+                              size: 18,
+                              color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                            ),
                           ),
                         ],
                       ),
@@ -389,80 +413,91 @@ class AiChatWidget extends HookWidget {
                   ),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(18, 10, 18, 18),
-                    child: Container(
-                      padding: const EdgeInsets.fromLTRB(10, 7, 7, 7),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 160),
+                      padding: const EdgeInsets.fromLTRB(12, 6, 6, 6),
                       decoration: BoxDecoration(
                         color: colorScheme.surfaceContainerHigh.withValues(
                           alpha: ambientEnabled ? 0.94 : 1.0,
                         ),
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: colorScheme.outline.withValues(alpha: 0.24),
+                          color: isFocused.value
+                              ? effectiveAccent.withValues(alpha: 0.8)
+                              : colorScheme.outline.withValues(alpha: 0.16),
+                          width: isFocused.value ? 1.5 : 1.0,
                         ),
+                        boxShadow: isFocused.value
+                            ? [
+                                BoxShadow(
+                                  color: effectiveAccent.withValues(alpha: 0.15),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                )
+                              ]
+                            : null,
                       ),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 2),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: controller,
-                                focusNode: composerFocusNode,
-                                minLines: 1,
-                                maxLines: 4,
-                                textInputAction: TextInputAction.send,
-                                textAlignVertical: TextAlignVertical.center,
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  fontSize: 13,
-                                  height: 1.25,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: controller,
+                              focusNode: composerFocusNode,
+                              minLines: 1,
+                              maxLines: 4,
+                              textInputAction: TextInputAction.send,
+                              textAlignVertical: TextAlignVertical.center,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                fontSize: 13,
+                                height: 1.25,
+                              ),
+                              decoration: InputDecoration(
+                                hintText: 'Ask a question...',
+                                hintStyle: theme.textTheme.bodyMedium
+                                    ?.copyWith(
+                                      fontSize: 13,
+                                      color: colorScheme.onSurfaceVariant
+                                          .withValues(alpha: 0.55),
+                                    ),
+                                border: InputBorder.none,
+                                isDense: true,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  vertical: 10,
                                 ),
-                                decoration: InputDecoration(
-                                  hintText: 'Ask',
-                                  hintStyle: theme.textTheme.bodyMedium
-                                      ?.copyWith(
-                                        fontSize: 13,
-                                        color: colorScheme.onSurfaceVariant
-                                            .withValues(alpha: 0.66),
-                                      ),
-                                  border: InputBorder.none,
-                                  isDense: true,
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    vertical: 10,
-                                  ),
-                                ),
-                                onSubmitted: (_) => sendMessage(),
+                              ),
+                              onSubmitted: (_) => sendMessage(),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 160),
+                            width: 32,
+                            height: 32,
+                            decoration: BoxDecoration(
+                              color: hasText
+                                  ? effectiveAccent
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: IconButton(
+                              onPressed: isLoading.value
+                                  ? null
+                                  : () => sendMessage(),
+                              hoverColor: Colors.transparent,
+                              highlightColor: Colors.transparent,
+                              splashColor: Colors.transparent,
+                              padding: EdgeInsets.zero,
+                              icon: Icon(
+                                Icons.arrow_upward_rounded,
+                                size: 16,
+                                color: hasText
+                                    ? colorScheme.onPrimary
+                                    : colorScheme.onSurfaceVariant.withValues(alpha: 0.45),
                               ),
                             ),
-                            const SizedBox(width: 10),
-                            AnimatedContainer(
-                              duration: const Duration(milliseconds: 160),
-                              width: 34,
-                              height: 34,
-                              decoration: BoxDecoration(
-                                color: Colors.transparent,
-                                borderRadius: BorderRadius.circular(999),
-                              ),
-                              child: IconButton(
-                                onPressed: isLoading.value
-                                    ? null
-                                    : () => sendMessage(),
-                                hoverColor: Colors.transparent,
-                                highlightColor: Colors.transparent,
-                                splashColor: Colors.transparent,
-                                icon: Icon(
-                                  Icons.arrow_upward_rounded,
-                                  size: 17,
-                                ),
-                                color: isLoading.value
-                                    ? colorScheme.onSurfaceVariant.withValues(
-                                        alpha: 0.45,
-                                      )
-                                    : colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -493,68 +528,131 @@ class _EmptyChatState extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    return Align(
-      alignment: Alignment.topCenter,
+
+    return Center(
       child: Padding(
-        padding: EdgeInsets.fromLTRB(24, compactMode ? 68 : 84, 24, 0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Start',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                height: 1.05,
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                  shape: BoxShape.circle,
+                ),
+                child: Center(
+                  child: Image.asset(
+                    'assets/icons/menu_bar_icon.png',
+                    width: 20,
+                    height: 20,
+                    color: colorScheme.primary.withValues(alpha: 0.65),
+                    errorBuilder: (context, error, stackTrace) => Icon(
+                      Icons.assistant_navigation,
+                      size: 18,
+                      color: colorScheme.primary.withValues(alpha: 0.65),
+                    ),
+                  ),
+                ),
               ),
-            ),
-            const SizedBox(height: 14),
-            Wrap(
-              alignment: WrapAlignment.center,
-              spacing: 10,
-              runSpacing: 10,
-              children: starterPrompts
-                  .map(
-                    (prompt) => Container(
-                      decoration: BoxDecoration(
-                        color: colorScheme.surfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                          color: colorScheme.outline.withValues(alpha: 0.22),
+              const SizedBox(height: 14),
+              Text(
+                'Via Assistant',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                  color: colorScheme.onSurface,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Ask questions about the current page, summarize content, or chat freely.',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant.withValues(alpha: 0.65),
+                  fontSize: 11,
+                  height: 1.35,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: starterPrompts.map((prompt) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8.0),
+                    child: MouseRegion(
+                      cursor: SystemMouseCursors.click,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: colorScheme.surfaceContainerHigh,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: colorScheme.outline.withValues(alpha: 0.10),
+                            width: 0.5,
+                          ),
                         ),
-                      ),
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(14),
-                          onTap: () => onPromptSelected(prompt),
-                          hoverColor: Colors.transparent,
-                          splashColor: Colors.transparent,
-                          highlightColor: Colors.transparent,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 18,
-                              vertical: 11,
-                            ),
-                            child: Text(
-                              prompt,
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                height: 1.0,
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(12),
+                            onTap: () => onPromptSelected(prompt),
+                            hoverColor: colorScheme.onSurface.withValues(alpha: 0.04),
+                            splashColor: Colors.transparent,
+                            highlightColor: Colors.transparent,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 11,
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    _getPromptIcon(prompt),
+                                    size: 13,
+                                    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.75),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      prompt,
+                                      style: theme.textTheme.bodyMedium?.copyWith(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
+                                        color: colorScheme.onSurface,
+                                      ),
+                                    ),
+                                  ),
+                                  Icon(
+                                    Icons.chevron_right_rounded,
+                                    size: 13,
+                                    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.45),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
                         ),
                       ),
                     ),
-                  )
-                  .toList(),
-            ),
-          ],
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
         ),
       ),
     );
+  }
+
+  IconData _getPromptIcon(String prompt) {
+    final p = prompt.toLowerCase();
+    if (p.contains('summarize')) return Icons.summarize_outlined;
+    if (p.contains('points') || p.contains('key')) return Icons.list_alt_rounded;
+    if (p.contains('explain') || p.contains('structure')) return Icons.explore_outlined;
+    if (p.contains('read')) return Icons.menu_book_rounded;
+    return Icons.chat_bubble_outline_rounded;
   }
 }
 

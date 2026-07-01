@@ -5,7 +5,7 @@
 // 'flutter create' template.
 
 // The application's name. By default this is also the title of the Flutter window.
-PRODUCT_NAME = Browser
+PRODUCT_NAME = Via
 
 // The application's bundle identifier
 // Override APP_BUNDLE_ID in CI for release builds.
@@ -13,7 +13,7 @@ APP_BUNDLE_ID = com.bniladridas.browser
 PRODUCT_BUNDLE_IDENTIFIER = $(APP_BUNDLE_ID)
 
 // The copyright displayed in application information
-PRODUCT_COPYRIGHT = Copyright © 2026 bniladridas. All rights reserved.
+PRODUCT_COPYRIGHT = Copyright © 2026 Palmshed. All rights reserved.
 
 // Include CocoaPods configuration for the current build configuration
 #include? "../../Pods/Target Support Files/Pods-Runner/Pods-Runner.$(CONFIGURATION:lower).xcconfig"

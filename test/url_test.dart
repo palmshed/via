@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 //
-// Copyright 2026 bniladridas. All rights reserved.
+// Copyright 2026 Palmshed. All rights reserved.
 // Use of this source code is governed by a MIT license that can be
 // found in the LICENSE file.
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:browser/ux/browser_page.dart';
+import 'package:browser/utils/url_utils.dart';
 
 void main() {
   group('URL Processing', () {

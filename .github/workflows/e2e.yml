@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT
 #
-# Copyright 2026 bniladridas. All rights reserved.
+# Copyright 2026 Palmshed. All rights reserved.
 # Use of this source code is governed by a MIT license that can be
 # found in the LICENSE file.
 ---
@@ -16,13 +16,13 @@ on:
 jobs:
   e2e:
     runs-on: macos-26
-    if: github.repository_owner == 'bniladridas'
+    if: github.repository_owner == 'Palmshed'
 
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-flutter
         with:
-          flutter-version: '3.44.0'
+          flutter-version: '3.44.4'
       - run: flutter pub get
       - name: Generate code
         run: flutter pub run build_runner build --delete-conflicting-outputs

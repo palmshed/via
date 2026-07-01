@@ -1,56 +1,60 @@
-| `lint` | `flutter` |
-|:--------- |:------------ |
-| [![Lint](https://github.com/bniladridas/browser/actions/workflows/lint.yml/badge.svg)](https://github.com/bniladridas/browser/actions/workflows/lint.yml) | [![Flutter](https://github.com/bniladridas/browser/actions/workflows/flutter.yml/badge.svg)](https://github.com/bniladridas/browser/actions/workflows/flutter.yml) |
+# Via
 
-# Browser
+![Via Banner](assets/banner.png)
 
-![Screenshot](assets/screenshot.png)
+![Flutter](https://img.shields.io/badge/Flutter-3.44.4%2B-02569B?style=flat-square&logo=flutter)
+![License](https://img.shields.io/badge/License-MIT-2f4858?style=flat-square)
+![Platforms](https://img.shields.io/badge/Platforms-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey?style=flat-square)
 
-Flutter desktop browser with tabs, bookmarks, history, and encrypted settings storage. The app runs on macOS, Windows, and Linux.
+A Flutter desktop browser for macOS, Windows, and Linux.
+
+Features include tabbed browsing, bookmarks, history, encrypted local storage, and profile-based settings.
+
+## Design principles
+
+Via favors small, focused components with BrowserPage acting as the coordinator. New functionality should extend existing services or widgets before adding responsibilities to the coordinator.
 
 ## Quick start
 
 Clone the repo, install dependencies, and launch the macOS bundle.
 
 ```bash
-git clone https://github.com/bniladridas/browser.git
-cd browser
+git clone https://github.com/palmshed/via.git
+cd via
 flutter pub get
-cp .env.example .env  # populate Firebase values before running
+cp .env.example .env
 flutterfire configure --platforms macos
-git checkout -- lib/firebase_options.dart  # keep runtime env vars
+git checkout -- lib/firebase_options.dart
 flutter run -d macos
 ```
 
 Do not commit `.env`; it contains private Firebase keys.
 
-## Firebase configuration
+## Firebase
 
-Firebase values are read from `.env` at runtime. The generated `lib/firebase_options.dart` stays under version control and references `const String` placeholders.
+Via reads Firebase configuration from `.env`.
 
-<details>
-<summary>regenerate platform files after changing Firebase config</summary>
+```bash
+cp .env.example .env
+flutterfire configure --platforms macos
+git checkout -- lib/firebase_options.dart
+```
 
-1. Update `.env` with the new Firebase project credentials.
-2. Run `flutterfire configure --platforms macos` to refresh the generated files.
-3. Run `git checkout -- lib/firebase_options.dart` to keep the environment-variable version.
-4. Restart `flutter run` to pick up the new settings.
-
-macOS also needs `macos/Runner/GoogleService-Info.plist`. `flutterfire configure` creates it, or you can copy it from the Firebase console. Keep `.env.example` as a template for local `.env` files.
-
-</details>
+If you change Firebase projects later, rerun `flutterfire configure`.
 
 ## Development
 
-- Requires Flutter 3.44.0 and the desktop toolchains for the target platforms.
-- Run `./check.sh` to apply formatting, lint, and build checks shared across platforms.
-- Build the signed macOS app with `flutter build macos` and adjust profiles with Xcode if needed.
-- If you hit missing Firebase credentials while targeting macOS, double-check that `.env` is populated before launching the app.
+Requirements:
+- Flutter 3.44.4+
+- Desktop toolchains
 
-## Release automation
-
-[Release 1.28.9](https://github.com/bniladridas/browser/releases/tag/desktop/app-1.28.9) was the last desktop release published directly by GitHub Actions.
-Current workflow automation uses the [browser-dart](https://github.com/apps/browser-dart) GitHub App where elevated repository access is needed, including release and project automation.
+Useful commands:
+```bash
+./check.sh
+flutter analyze
+flutter test
+flutter build macos
+```
 
 ## Keyboard shortcuts
 
@@ -75,40 +79,32 @@ Keys are defined in `lib/utils/keyboard_utils.dart`.
 
 Unsigned builds can show Gatekeeper warnings. The first launch can stay in Finder:
 
-1. Drag `Browser.app` to **Applications**.
-2. Right-click `Browser.app`, choose **Open**, and confirm the dialog.
-3. Alternatively, open **System Settings → Privacy & Security** and click **Open Anyway** for `Browser.app`.
+1. Drag `Via.app` to **Applications**.
+2. Right-click `Via.app`, choose **Open**, and confirm the dialog.
+3. Alternatively, open **System Settings → Privacy & Security** and click **Open Anyway** for `Via.app`.
 
 For Terminal installs, clear the quarantine flag with:
 
 ```bash
-xattr -rd com.apple.quarantine /Applications/Browser.app
+xattr -rd com.apple.quarantine /Applications/Via.app
 ```
 
 Only run the command if you trust the build source.
 
-## Need help?
+## Documentation
 
-- `docs/` contains focused project notes.
+- `docs/` contains focused project notes, including [Releasing](docs/releasing.md) and [Repository Layout](docs/repository.md).
 - `.codex/README.md` documents toolchains, skills, and local workflows.
-- Report bugs or feature requests via [GitHub Issues](https://github.com/bniladridas/browser/issues).
-
-## Generated files
-
-`.gitattributes` marks generated files so GitHub hides them from diffs and stats. Common generated paths include:
-
-- `build/**` and `.dart_tool/**`
-- `lib/**/*.freezed.dart` and `lib/**/*.g.dart`
-- Platform artifacts such as `android/**`, `ios/**`, `macos/**`, `linux/**`, and `windows/**`
-
-When a specific file should be shown in diffs, add `-linguist-generated` to `.gitattributes` for that path.
+- Report bugs or feature requests via [GitHub Issues](https://github.com/palmshed/via/issues).
 
 ## Contribute
 
 Fork, create a branch, run the checks, then open a pull request with a short conventional commit-style summary.
 
+Please discuss larger architectural changes before opening a pull request.
+
 ## License
 
 This project is proprietary. See `LICENSE` for the full terms.
 
-Copyright (c) 2026 Niladri Das (bniladridas). All Rights Reserved.
+Copyright (c) 2026 Palmshed. All Rights Reserved.

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 //
-// Copyright 2026 bniladridas. All rights reserved.
+// Copyright 2026 Palmshed. All rights reserved.
 // Use of this source code is governed by a MIT license that can be
 // found in the LICENSE file.
 
@@ -27,7 +27,7 @@ class SplashScreen extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(18),
+                  borderRadius: BorderRadius.circular(14),
                   child: Image.asset(
                     'assets/icons/app_icon.png',
                     width: logoSize,
@@ -50,7 +50,7 @@ class SplashScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'Browser',
+                  'Via',
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodySmall?.copyWith(
                     fontWeight: FontWeight.w500,
@@ -61,10 +61,10 @@ class SplashScreen extends StatelessWidget {
                 SizedBox(
                   width: 88,
                   child: LinearProgressIndicator(
-                    minHeight: 2,
+                    minHeight: 3,
                     borderRadius: BorderRadius.circular(999),
                     backgroundColor: colorScheme.surfaceContainerHighest,
-                    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.32),
+                    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.28),
                   ),
                 ),
               ],

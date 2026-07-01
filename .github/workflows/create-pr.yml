@@ -30,17 +30,17 @@ permissions:
 jobs:
   create-pr:
     runs-on: ubuntu-latest
-    if: github.repository_owner == 'bniladridas'
+    if: github.repository_owner == 'Palmshed'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - id: app-token
-        name: Create Browser app token
+        name: Create Via app token
         uses: actions/create-github-app-token@v2
         with:
-          app-id: ${{ secrets.BROWSER_APP_ID }}
-          private-key: ${{ secrets.BROWSER_APP_PRIVATE_KEY }}
+          app-id: ${{ secrets.VIA_APP_ID }}
+          private-key: ${{ secrets.VIA_APP_PRIVATE_KEY }}
           permission-pull-requests: write
           permission-contents: read
 

@@ -4,7 +4,7 @@ Small notes for local development.
 
 ## Setup
 
-1. Install Flutter 3.44.0: https://docs.flutter.dev/get-started/install
+1. Install Flutter 3.44.4+: https://docs.flutter.dev/get-started/install
 2. Clone the repo
 3. Run `./check.sh` for the full suite (codegen, analyze, unit test, macOS build, workflow lint)
 4. Use the scripts listed below when you need a smaller scope
