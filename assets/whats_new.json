@@ -253,7 +253,7 @@
     "use LayoutBuilder for responsive vertical centering on Torry search page."
   ],
   "1.28.9": [
-    "update bundle ID to com.bniladridas.browser and harden process/crash log handling."
+    "update bundle ID to com.palmshed.via and harden process/crash log handling."
   ],
   "1.28.10": [
     "remove persist-credentials: false from version-bump workflow."

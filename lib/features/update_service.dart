@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 //
-// Copyright 2026 bniladridas. All rights reserved.
+// Copyright 2026 Palmshed. All rights reserved.
 // Use of this source code is governed by a MIT license that can be
 // found in the LICENSE file.
 
@@ -29,7 +29,7 @@ class UpdateInfo {
 }
 
 class UpdateService {
-  static const String _owner = 'bniladridas';
+  static const String _owner = 'Palmshed';
   static const String _repo = 'browser';
   static const String _latestReleaseUrl =
       'https://api.github.com/repos/$_owner/$_repo/releases/latest';

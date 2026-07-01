@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT
 ---
 #
-# Copyright 2026 bniladridas. All rights reserved.
+# Copyright 2026 Palmshed. All rights reserved.
 # Use of this source code is governed by a MIT license that can be
 # found in the LICENSE file.
 
@@ -17,7 +17,7 @@ jobs:
   check:
     name: Browser
     runs-on: ubuntu-latest
-    if: github.repository_owner == 'bniladridas'
+    if: github.repository_owner == 'Palmshed'
     permissions:
       contents: read
       pull-requests: read

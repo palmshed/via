@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 //
-// Copyright 2026 bniladridas. All rights reserved.
+// Copyright 2026 Palmshed. All rights reserved.
 // Use of this source code is governed by a MIT license that can be
 // found in the LICENSE file.
 
@@ -655,7 +655,7 @@ class SettingsDialog extends HookWidget {
 
           if (Platform.isMacOS) {
             try {
-              final appName = 'Browser.app';
+              final appName = 'Via.app';
               final appPath = '/Applications/$appName';
 
               final mountResult = await Process.run(
@@ -907,10 +907,10 @@ class SettingsDialog extends HookWidget {
 
     return AlertDialog(
       alignment: Alignment.centerRight,
-      insetPadding: const EdgeInsets.fromLTRB(24, 24, 16, 24),
+      insetPadding: const EdgeInsets.fromLTRB(28, 24, 20, 24),
       title: Text(
         'Settings',
-        style: theme.textTheme.titleSmall?.copyWith(fontSize: 15),
+        style: theme.textTheme.titleSmall?.copyWith(fontSize: 14),
       ),
       content: ConstrainedBox(
         constraints: BoxConstraints(maxHeight: dialogMaxHeight),
@@ -938,14 +938,14 @@ class SettingsDialog extends HookWidget {
                 ),
                 listTileTheme: ListTileThemeData(
                   dense: true,
-                  visualDensity: compactDensity,
+                  visualDensity: const VisualDensity(horizontal: -2, vertical: -1),
                   titleTextStyle: theme.textTheme.bodyMedium?.copyWith(
                     fontSize: 12,
                     fontWeight: FontWeight.w400,
                     color: theme.colorScheme.onSurface,
                   ),
                   subtitleTextStyle: theme.textTheme.bodySmall?.copyWith(
-                    fontSize: 10,
+                    fontSize: 11,
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
@@ -975,7 +975,7 @@ class SettingsDialog extends HookWidget {
                   ),
                   const SizedBox(height: 16),
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: DecoratedBox(
                       decoration: BoxDecoration(
                         color: theme.colorScheme.surfaceContainerHigh,
@@ -1020,7 +1020,7 @@ class SettingsDialog extends HookWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 16),
                   MouseRegion(
                     cursor: SystemMouseCursors.click,
                     child: SwitchListTile(
@@ -1161,10 +1161,10 @@ class SettingsDialog extends HookWidget {
                       hoverColor: Colors.transparent,
                     ),
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 20),
                   Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
+                    spacing: 8,
+                    runSpacing: 8,
                     children: AppThemeMode.values.map((mode) {
                       final isSelected = selectedTheme.value == mode;
                       return Theme(
@@ -1177,7 +1177,7 @@ class SettingsDialog extends HookWidget {
                           label: Text(
                             _themeLabel(mode),
                             style: theme.textTheme.bodySmall
-                                ?.copyWith(fontSize: 11),
+                                ?.copyWith(fontSize: 12),
                           ),
                           selected: isSelected,
                           showCheckmark: false,
@@ -1192,7 +1192,7 @@ class SettingsDialog extends HookWidget {
                       );
                     }).toList(),
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 20),
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(
@@ -1434,7 +1434,7 @@ class SettingsDialog extends HookWidget {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 16),
                   ListTile(
                     title: Text(
                       effectiveUpdateInfo != null
@@ -1466,7 +1466,7 @@ class SettingsDialog extends HookWidget {
                             ),
                           ),
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 16),
                   MouseRegion(
                     cursor: SystemMouseCursors.click,
                     child: GestureDetector(
@@ -1497,9 +1497,12 @@ class SettingsDialog extends HookWidget {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(false),
+          style: TextButton.styleFrom(
+            visualDensity: VisualDensity.compact,
+          ),
           child: const Text('Cancel'),
         ),
-        TextButton(
+        FilledButton(
           onPressed: () async {
             final homepageText = homepageController.text.trim();
             String homepageToSave;
@@ -1603,6 +1606,9 @@ class SettingsDialog extends HookWidget {
             );
             Navigator.of(context).pop(true);
           },
+          style: FilledButton.styleFrom(
+            visualDensity: VisualDensity.compact,
+          ),
           child: const Text('Save'),
         ),
         if (onClearAllData != null)
@@ -1692,10 +1698,11 @@ class SettingsDialog extends HookWidget {
                 onClearAllData?.call(confirm);
               }
             },
-            child: Text(
-              'Clear',
-              style: TextStyle(color: theme.colorScheme.error),
+            style: TextButton.styleFrom(
+              visualDensity: VisualDensity.compact,
+              foregroundColor: theme.colorScheme.onSurface.withValues(alpha: 0.55),
             ),
+            child: Text('Clear'),
           ),
       ],
     );
@@ -4863,12 +4870,12 @@ class _BrowserPageState extends State<BrowserPage>
             const SizedBox(width: 4),
           ],
           _buildTabFavicon(tab, theme),
-          const SizedBox(width: 6),
+          const SizedBox(width: 8),
           Text(
             _tabTitleForDisplay(tab).truncate(18),
             style: TextStyle(
               fontSize: 12,
-              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+              fontWeight: FontWeight.w500,
               color: isSelected
                   ? theme.colorScheme.onSurface
                   : theme.colorScheme.onSurface.withValues(alpha: 0.6),
@@ -4906,7 +4913,7 @@ class _BrowserPageState extends State<BrowserPage>
     required Widget fallback,
   }) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(3),
+                borderRadius: BorderRadius.circular(2),
       child: Image.network(
         url,
         width: width,
@@ -4918,10 +4925,21 @@ class _BrowserPageState extends State<BrowserPage>
   }
 
   Widget _buildTabFavicon(TabData tab, ThemeData theme) {
-    final fallback = Icon(
-      Icons.public,
-      size: 15,
-      color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+    final fallback = ClipRRect(
+                borderRadius: BorderRadius.circular(2),
+      child: Image.asset(
+        'assets/icons/app_icon.png',
+        width: 15,
+        height: 15,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          return Icon(
+            Icons.public,
+            size: 15,
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+          );
+        },
+      ),
     );
     const isFlutterTest = bool.fromEnvironment('FLUTTER_TEST');
     final faviconUrl = tab.faviconUrl;
@@ -4935,7 +4953,7 @@ class _BrowserPageState extends State<BrowserPage>
         child: DecoratedBox(
           decoration: BoxDecoration(
             color: theme.colorScheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(3),
+                      borderRadius: BorderRadius.circular(2),
             border: Border.all(
               color: theme.colorScheme.outlineVariant.withValues(alpha: 0.35),
               width: 0.5,
@@ -4973,7 +4991,7 @@ class _BrowserPageState extends State<BrowserPage>
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: theme.colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(3),
+                    borderRadius: BorderRadius.circular(2),
           border: Border.all(
             color: theme.colorScheme.outlineVariant.withValues(alpha: 0.35),
             width: 0.5,
@@ -5920,7 +5938,7 @@ class _BrowserPageState extends State<BrowserPage>
         barrierDismissible: true,
         barrierLabel: 'Settings',
         barrierColor: _ambientActive ? Colors.transparent : Colors.black54,
-        transitionDuration: const Duration(milliseconds: 200),
+        transitionDuration: const Duration(milliseconds: 150),
         pageBuilder: (context, animation, secondaryAnimation) {
           final theme = Theme.of(context);
           return Align(
@@ -5950,21 +5968,27 @@ class _BrowserPageState extends State<BrowserPage>
                 ambientToolbarEnabled: widget.ambientToolbarEnabled,
                 autoHideAddressBarEnabled: widget.autoHideAddressBarEnabled,
                 onOpenHelp: () => _loadUrl(
-                    'https://bniladridas.github.io/browser/features.html'),
+                    'https://Palmshed.github.io/browser/features.html'),
               ),
             ),
           );
         },
         transitionBuilder: (context, animation, secondaryAnimation, child) {
-          return SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(1.0, 0.0),
-              end: Offset.zero,
-            ).animate(CurvedAnimation(
+          return FadeTransition(
+            opacity: CurvedAnimation(
               parent: animation,
               curve: Curves.easeOut,
-            )),
-            child: child,
+            ),
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(1.0, 0.0),
+                end: Offset.zero,
+              ).animate(CurvedAnimation(
+                parent: animation,
+                curve: Curves.easeOut,
+              )),
+              child: child,
+            ),
           );
         },
       ),
@@ -6243,6 +6267,12 @@ class _BrowserPageState extends State<BrowserPage>
           await _showWithModalInteractionBlock<void>(widget.onShowWhatsNew!);
         }
         break;
+      case 'onion_directory':
+        _loadUrl('https://www.torry.io/learn/directory/');
+        break;
+      case 'anonymous_view':
+        _loadUrl('https://www.torry.io/anonymous-view/');
+        break;
     }
   }
 
@@ -6269,16 +6299,16 @@ class _BrowserPageState extends State<BrowserPage>
           unawaited(_handleMenuSelection(value));
         },
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Row(
             children: [
               Icon(icon, size: 16, color: theme.colorScheme.onSurfaceVariant),
-              const SizedBox(width: 8),
+              const SizedBox(width: 10),
               Text(
                 label,
                 style: theme.textTheme.bodyMedium?.copyWith(
                   fontSize: 12,
-                  fontWeight: FontWeight.w500,
+                  fontWeight: FontWeight.w400,
                 ),
               ),
             ],
@@ -6335,6 +6365,18 @@ class _BrowserPageState extends State<BrowserPage>
       ),
       _buildMenuItem(
         context,
+        value: 'onion_directory',
+        icon: Icons.list,
+        label: 'Onion directory',
+      ),
+      _buildMenuItem(
+        context,
+        value: 'anonymous_view',
+        icon: Icons.visibility,
+        label: 'Anonymous view',
+      ),
+      _buildMenuItem(
+        context,
         value: 'network_debug',
         icon: Icons.network_check,
         label: 'Network Debug',
@@ -6343,7 +6385,7 @@ class _BrowserPageState extends State<BrowserPage>
   }
 
   Widget _buildMenuButton({
-    double iconSize = 24,
+    double iconSize = 20,
     EdgeInsetsGeometry padding = const EdgeInsets.all(8),
   }) {
     return MenuAnchor(
@@ -6351,11 +6393,15 @@ class _BrowserPageState extends State<BrowserPage>
       consumeOutsideTap: true,
       style: MenuStyle(
         shape: WidgetStatePropertyAll(
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
-        minimumSize: const WidgetStatePropertyAll(Size(180, 0)),
+        minimumSize: const WidgetStatePropertyAll(Size(184, 0)),
         padding: const WidgetStatePropertyAll(
-          EdgeInsets.symmetric(vertical: 4),
+          EdgeInsets.symmetric(vertical: 6),
+        ),
+        elevation: const WidgetStatePropertyAll(8),
+        shadowColor: WidgetStatePropertyAll(
+          Colors.black.withValues(alpha: 0.18),
         ),
       ),
       onClose: () {
@@ -6432,12 +6478,12 @@ class _BrowserPageState extends State<BrowserPage>
         barrierColor: _ambientActive
             ? Theme.of(context).colorScheme.surface.withValues(alpha: 0.16)
             : Colors.black54,
-        transitionDuration: const Duration(milliseconds: 200),
+        transitionDuration: const Duration(milliseconds: 150),
         transitionBuilder: (context, animation, secondaryAnimation, child) {
           final curved = CurvedAnimation(
             parent: animation,
-            curve: Curves.easeOutCubic,
-            reverseCurve: Curves.easeInCubic,
+            curve: Curves.easeOut,
+            reverseCurve: Curves.easeIn,
           );
           return FadeTransition(
             opacity: curved,
@@ -6949,6 +6995,21 @@ class _BrowserPageState extends State<BrowserPage>
     activeTab.hideStaleWebViewUntilPageFinish = wasOnHome;
     if (activeTab.webViewController == null && mounted) {
       setState(() {});
+      // Schedule navigation after the frame that creates the WebView
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted || activeTab.isClosed ||
+              activeTab.webViewController == null) {
+            return;
+          }
+          unawaited(() async {
+            await _configurePlatformSpecificWebView(activeTab);
+            if (!mounted || activeTab.isClosed) return;
+            await _loadInitialRequestForTab(activeTab);
+          }());
+        });
+      });
+      return;
     }
     try {
       if (processedUrl.startsWith('file:///') ||
@@ -7013,7 +7074,7 @@ class _BrowserPageState extends State<BrowserPage>
             const horizontalPadding = 18.0;
             const verticalPadding = 28.0;
             final topBreathingRoom =
-                (constraints.maxHeight * 0.18).clamp(72.0, 220.0);
+                (constraints.maxHeight * 0.12).clamp(48.0, 160.0);
 
             return SingleChildScrollView(
               padding: EdgeInsets.fromLTRB(
@@ -7025,40 +7086,35 @@ class _BrowserPageState extends State<BrowserPage>
               child: Align(
                 alignment: Alignment.topCenter,
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 560),
+                  constraints: const BoxConstraints(maxWidth: 520),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: colorScheme.primaryContainer,
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Icon(
-                          Icons.security,
-                          size: 36,
-                          color: colorScheme.onPrimaryContainer,
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.asset(
+                          'assets/icons/app_icon.png',
+                          width: 52,
+                          height: 52,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Icon(
+                              Icons.security,
+                              size: 52,
+                              color: colorScheme.onSurfaceVariant,
+                            );
+                          },
                         ),
                       ),
-                      const SizedBox(height: 12),
-                      Text(
-                        'Private search via torry.io.',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                          fontSize: 13,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 18),
+                      const SizedBox(height: 24),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
                         decoration: BoxDecoration(
                           color: colorScheme.surfaceContainerHighest,
-                          borderRadius: BorderRadius.circular(14),
+                          borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: colorScheme.outline.withValues(alpha: 0.45),
+                            color: colorScheme.outline.withValues(alpha: 0.35),
                           ),
                         ),
                         child: TextField(
@@ -7071,13 +7127,16 @@ class _BrowserPageState extends State<BrowserPage>
                           onSubmitted: (s) => _performTorrySearch(tab, s),
                           decoration: InputDecoration(
                             hintText: 'Search',
+                            hintStyle: TextStyle(
+                              color: colorScheme.onSurface.withValues(alpha: 0.38),
+                            ),
                             isDense: true,
                             border: InputBorder.none,
                             contentPadding:
-                                const EdgeInsets.symmetric(vertical: 10),
+                                const EdgeInsets.symmetric(vertical: 12),
                             prefixIcon: Icon(
                               Icons.search,
-                              color: colorScheme.primary,
+                              color: colorScheme.onSurface.withValues(alpha: 0.5),
                               size: 18,
                             ),
                             prefixIconConstraints: const BoxConstraints(
@@ -7092,8 +7151,8 @@ class _BrowserPageState extends State<BrowserPage>
                                   padding: const EdgeInsets.all(8),
                                   child: Icon(
                                     Icons.arrow_forward,
-                                    color: colorScheme.primary,
-                                    size: 22,
+                                    color: colorScheme.onSurface.withValues(alpha: 0.5),
+                                    size: 20,
                                   ),
                                 ),
                               ),
@@ -7101,40 +7160,7 @@ class _BrowserPageState extends State<BrowserPage>
                           ),
                         ),
                       ),
-                      const SizedBox(height: 14),
-                      Wrap(
-                        spacing: 10,
-                        runSpacing: 8,
-                        alignment: WrapAlignment.center,
-                        children: [
-                          TextButton.icon(
-                            onPressed: () => _loadUrl(
-                              'https://www.torry.io/learn/directory/',
-                            ),
-                            icon: const Icon(Icons.list),
-                            label: const Text(
-                              'Onion directory',
-                              style: TextStyle(fontSize: 12),
-                            ),
-                            style: TextButton.styleFrom(
-                              visualDensity: VisualDensity.compact,
-                            ),
-                          ),
-                          TextButton.icon(
-                            onPressed: () => _loadUrl(
-                              'https://www.torry.io/anonymous-view/',
-                            ),
-                            icon: const Icon(Icons.visibility),
-                            label: const Text(
-                              'Anonymous view',
-                              style: TextStyle(fontSize: 12),
-                            ),
-                            style: TextButton.styleFrom(
-                              visualDensity: VisualDensity.compact,
-                            ),
-                          ),
-                        ],
-                      ),
+
                     ],
                   ),
                 ),
@@ -7176,7 +7202,7 @@ class _BrowserPageState extends State<BrowserPage>
             ),
             const SizedBox(height: 12),
             Text(
-              'Browser',
+              'Via',
               style: theme.textTheme.titleLarge?.copyWith(
                 color: colorScheme.primary,
                 fontWeight: FontWeight.w700,
@@ -7686,11 +7712,13 @@ class _BrowserPageState extends State<BrowserPage>
         },
       ));
       _syncPagePointerEvents(tab);
-      unawaited(() async {
-        await _configurePlatformSpecificWebView(tab);
-        if (!mounted || tab.isClosed) return;
-        await _loadInitialRequestForTab(tab);
-      }());
+      if (tab.pendingNavigationUrl == null) {
+        unawaited(() async {
+          await _configurePlatformSpecificWebView(tab);
+          if (!mounted || tab.isClosed) return;
+          await _loadInitialRequestForTab(tab);
+        }());
+      }
     }
 
     try {
@@ -7704,15 +7732,30 @@ class _BrowserPageState extends State<BrowserPage>
                   color: Theme.of(context).colorScheme.surface,
                 ),
               ),
-            if (tab.state is Loading && !_modalInteractionBlockOpen)
-              Positioned(
+            Positioned(
                 top: 0,
                 left: 0,
                 right: 0,
-                child: LinearProgressIndicator(
-                  minHeight: 2,
-                  backgroundColor: Colors.transparent,
-                  color: Theme.of(context).colorScheme.primary,
+                child: AnimatedOpacity(
+                  opacity: tab.state is Loading && !_modalInteractionBlockOpen
+                      ? 1.0
+                      : 0.0,
+                  duration: const Duration(milliseconds: 200),
+                  child: TweenAnimationBuilder<double>(
+                    key: ObjectKey(tab),
+                    tween: Tween(begin: 0.25, end: 1.0),
+                    duration: const Duration(milliseconds: 2000),
+                    curve: Curves.easeOut,
+                    builder: (context, value, child) {
+                      return LinearProgressIndicator(
+                        value: value,
+                        minHeight: 3,
+                        backgroundColor: Colors.transparent,
+                        color: Theme.of(context).colorScheme.primary
+                            .withValues(alpha: 0.75),
+                      );
+                    },
+                  ),
                 ),
               ),
             if (tab.pendingPasswordPrompt != null && activeTab == tab)
@@ -7958,7 +8001,7 @@ class _BrowserPageState extends State<BrowserPage>
         : theme.colorScheme.onSurfaceVariant;
     final toolbarDividerColor = useAmbient
         ? Colors.transparent
-        : theme.colorScheme.outline.withValues(alpha: 0.2);
+        : theme.colorScheme.outline.withValues(alpha: 0.12);
 
     final PreferredSizeWidget? appBarWidget = widget.hideAppBar
         ? null
@@ -7990,7 +8033,7 @@ class _BrowserPageState extends State<BrowserPage>
               Container(
                 margin: const EdgeInsets.symmetric(horizontal: 2),
                 child: _buildToolbarPill(
-                  borderRadius: BorderRadius.circular(15),
+                  borderRadius: BorderRadius.circular(12),
                   tintColor: toolbarPillColor,
                   frosted: useAmbient,
                   border: null,
@@ -8017,7 +8060,7 @@ class _BrowserPageState extends State<BrowserPage>
               ),
               ClickableIcon(
                 icon: Icons.add,
-                size: 22,
+                size: 20,
                 color: toolbarForeground,
                 padding: EdgeInsets.all(isMobilePlatform ? 7 : 8),
                 onTap: _addNewTab,
@@ -8027,9 +8070,9 @@ class _BrowserPageState extends State<BrowserPage>
               ),
             ],
             title: Container(
-              margin: EdgeInsets.only(left: addressBarLeftOffset),
+              margin: EdgeInsets.only(left: addressBarLeftOffset, right: 4),
               child: _buildToolbarPill(
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(16),
                 tintColor: addressPillColor,
                 frosted: useAmbient,
                 border: null,
@@ -8057,12 +8100,12 @@ class _BrowserPageState extends State<BrowserPage>
                         },
                         child: Icon(
                           Icons.search,
-                          color: toolbarForeground,
-                          size: 18,
+                          color: toolbarForeground.withValues(alpha: 0.45),
+                          size: 16,
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 6),
                     Expanded(
                       child: MouseRegion(
                         onEnter: (_) => _handleAddressBarHoverChanged(true),
@@ -8088,20 +8131,19 @@ class _BrowserPageState extends State<BrowserPage>
                             child: activeTab.isUrlObscured
                                 ? SizedBox(
                                     key: const ValueKey('url_obscured'),
-                                    height: 38,
+                                    height: 34,
                                     child: Align(
                                       alignment: Alignment.centerLeft,
-                                      child: Text(
-                                        '🍎',
-                                        strutStyle: const StrutStyle(
-                                          fontSize: 14,
-                                          height: 1.0,
-                                          forceStrutHeight: true,
-                                        ),
-                                        style: TextStyle(
-                                          color: toolbarForeground,
-                                          fontSize: 14,
-                                          height: 1.0,
+                                      child: Padding(
+                                        padding: const EdgeInsets.only(left: 4),
+                                        child: ClipRRect(
+                                          borderRadius: BorderRadius.circular(3),
+                                          child: Image.asset(
+                                            'assets/icons/app_icon.png',
+                                            width: 20,
+                                            height: 20,
+                                            fit: BoxFit.cover,
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -8124,16 +8166,17 @@ class _BrowserPageState extends State<BrowserPage>
                                             fontSize: 13,
                                           ),
                                           decoration: InputDecoration(
-                                            hintText: 'Search or enter URL',
+                                            hintText: 'Search',
                                             hintStyle: TextStyle(
                                               color: toolbarForeground
-                                                  .withValues(alpha: 0.72),
+                                                  .withValues(alpha: 0.38),
                                               fontSize: 13,
+                                              fontWeight: FontWeight.w400,
                                             ),
                                             border: InputBorder.none,
                                             contentPadding:
                                                 const EdgeInsets.symmetric(
-                                              vertical: 10,
+                                              vertical: 6,
                                             ),
                                           ),
                                           onTap: () {
@@ -8238,7 +8281,7 @@ class _BrowserPageState extends State<BrowserPage>
           Column(
             children: [
               Container(
-                height: 34,
+                height: 32,
                 width: double.infinity,
                 decoration: BoxDecoration(
                   color: useAmbient
@@ -8246,12 +8289,14 @@ class _BrowserPageState extends State<BrowserPage>
                       : Theme.of(context).colorScheme.surface,
                   border: useAmbient
                       ? null
-                      : Border(
-                          bottom: BorderSide(
-                            color: toolbarDividerColor,
-                            width: 1,
-                          ),
-                        ),
+                      : _reorderableTabs
+                          ? Border(
+                              bottom: BorderSide(
+                                color: toolbarDividerColor,
+                                width: 1,
+                              ),
+                            )
+                          : null,
                 ),
                 child: MouseRegion(
                   onEnter: (_) {
@@ -8313,6 +8358,12 @@ class _BrowserPageState extends State<BrowserPage>
                                       padding: const EdgeInsets.symmetric(
                                           horizontal: 12, vertical: 4),
                                       decoration: BoxDecoration(
+                                        color: isSelected && !_modalInteractionBlockOpen
+                                            ? Theme.of(context)
+                                                .colorScheme
+                                                .surfaceContainerHighest
+                                                .withValues(alpha: useAmbient ? 0.5 : 1.0)
+                                            : Colors.transparent,
                                         border: Border(
                                           bottom: BorderSide(
                                             color: isSelected &&
@@ -8320,9 +8371,10 @@ class _BrowserPageState extends State<BrowserPage>
                                                     !_modalInteractionBlockOpen
                                                 ? Theme.of(context)
                                                     .colorScheme
-                                                    .primary
+                                                    .onSurface
+                                                    .withValues(alpha: 0.2)
                                                 : Colors.transparent,
-                                            width: 2,
+                                            width: 1,
                                           ),
                                         ),
                                       ),
@@ -8352,7 +8404,10 @@ class _BrowserPageState extends State<BrowserPage>
                               indicatorColor: _modalInteractionBlockOpen ||
                                       widget.themeMode == AppThemeMode.adjust
                                   ? Colors.transparent
-                                  : Theme.of(context).colorScheme.primary,
+                                  : Theme.of(context)
+                                      .colorScheme
+                                      .onSurface
+                                      .withValues(alpha: 0.15),
                               dividerColor: useAmbient
                                   ? Colors.transparent
                                   : toolbarDividerColor,
@@ -8367,7 +8422,7 @@ class _BrowserPageState extends State<BrowserPage>
                                 final tab = entry.value;
                                 final isSelected = tabController.index == index;
                                 return Tab(
-                                  height: 30,
+                                  height: 28,
                                   child: _buildTabItem(tab, index, isSelected),
                                 );
                               }).toList(),
@@ -8530,7 +8585,7 @@ class _BrowserPageState extends State<BrowserPage>
             ),
           if (!_isOnline)
             Positioned(
-              top: widget.hideAppBar ? 16 : 0,
+              top: widget.hideAppBar ? 60 : 0,
               left: 0,
               right: 0,
               child: Material(

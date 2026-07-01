@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT
 ---
 #
-# Copyright 2026 bniladridas. All rights reserved.
+# Copyright 2026 Palmshed. All rights reserved.
 # Use of this source code is governed by a MIT license that can be
 # found in the LICENSE file.
 
@@ -14,7 +14,7 @@ on:
 jobs:
   cla:
     runs-on: ubuntu-latest
-    if: github.repository_owner == 'bniladridas'
+    if: github.repository_owner == 'Palmshed'
     permissions:
       contents: read
       issues: write
@@ -28,7 +28,7 @@ jobs:
       - name: Checkout private cla-bot
         uses: actions/checkout@v6
         with:
-          repository: bniladridas/cla-bot
+          repository: Palmshed/cla-bot
           token: ${{ secrets.CLA_BOT_TOKEN }}
           path: cla-bot
 

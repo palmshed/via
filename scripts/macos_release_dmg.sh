@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-APP_PATH="${APP_PATH:-build/macos/Build/Products/Release/Browser.app}"
-DMG_PATH="${DMG_PATH:-build/macos/Build/Products/Release/browser.dmg}"
-VOLUME_NAME="${VOLUME_NAME:-browser}"
+APP_PATH="${APP_PATH:-build/macos/Build/Products/Release/Via.app}"
+DMG_PATH="${DMG_PATH:-build/macos/Build/Products/Release/via.dmg}"
+VOLUME_NAME="${VOLUME_NAME:-Via}"
 TMP_ROOT="${TMP_ROOT:-}"
 ALLOW_UNSIGNED="${ALLOW_UNSIGNED:-}"
 DMG_WINDOW_BOUNDS="${DMG_WINDOW_BOUNDS:-100,100,900,650}"

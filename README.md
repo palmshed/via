@@ -1,8 +1,8 @@
 | `lint` | `flutter` |
 |:--------- |:------------ |
-| [![Lint](https://github.com/bniladridas/browser/actions/workflows/lint.yml/badge.svg)](https://github.com/bniladridas/browser/actions/workflows/lint.yml) | [![Flutter](https://github.com/bniladridas/browser/actions/workflows/flutter.yml/badge.svg)](https://github.com/bniladridas/browser/actions/workflows/flutter.yml) |
+| [![Lint](https://github.com/palmshed/via/actions/workflows/lint.yml/badge.svg)](https://github.com/palmshed/via/actions/workflows/lint.yml) | [![Flutter](https://github.com/palmshed/via/actions/workflows/flutter.yml/badge.svg)](https://github.com/palmshed/via/actions/workflows/flutter.yml) |
 
-# Browser
+# Via
 
 ![Screenshot](assets/screenshot.png)
 
@@ -13,7 +13,7 @@ Flutter desktop browser with tabs, bookmarks, history, and encrypted settings st
 Clone the repo, install dependencies, and launch the macOS bundle.
 
 ```bash
-git clone https://github.com/bniladridas/browser.git
+git clone https://github.com/palmshed/via.git
 cd browser
 flutter pub get
 cp .env.example .env  # populate Firebase values before running
@@ -49,7 +49,7 @@ macOS also needs `macos/Runner/GoogleService-Info.plist`. `flutterfire configure
 
 ## Release automation
 
-[Release 1.28.9](https://github.com/bniladridas/browser/releases/tag/desktop/app-1.28.9) was the last desktop release published directly by GitHub Actions.
+[Release 1.28.9](https://github.com/palmshed/via/releases/tag/desktop/app-1.28.9) was the last desktop release published directly by GitHub Actions.
 Current workflow automation uses the [browser-dart](https://github.com/apps/browser-dart) GitHub App where elevated repository access is needed, including release and project automation.
 
 ## Keyboard shortcuts
@@ -75,14 +75,14 @@ Keys are defined in `lib/utils/keyboard_utils.dart`.
 
 Unsigned builds can show Gatekeeper warnings. The first launch can stay in Finder:
 
-1. Drag `Browser.app` to **Applications**.
-2. Right-click `Browser.app`, choose **Open**, and confirm the dialog.
-3. Alternatively, open **System Settings → Privacy & Security** and click **Open Anyway** for `Browser.app`.
+1. Drag `Via.app` to **Applications**.
+2. Right-click `Via.app`, choose **Open**, and confirm the dialog.
+3. Alternatively, open **System Settings → Privacy & Security** and click **Open Anyway** for `Via.app`.
 
 For Terminal installs, clear the quarantine flag with:
 
 ```bash
-xattr -rd com.apple.quarantine /Applications/Browser.app
+xattr -rd com.apple.quarantine /Applications/Via.app
 ```
 
 Only run the command if you trust the build source.
@@ -91,7 +91,7 @@ Only run the command if you trust the build source.
 
 - `docs/` contains focused project notes.
 - `.codex/README.md` documents toolchains, skills, and local workflows.
-- Report bugs or feature requests via [GitHub Issues](https://github.com/bniladridas/browser/issues).
+- Report bugs or feature requests via [GitHub Issues](https://github.com/palmshed/via/issues).
 
 ## Generated files
 
@@ -111,4 +111,4 @@ Fork, create a branch, run the checks, then open a pull request with a short con
 
 This project is proprietary. See `LICENSE` for the full terms.
 
-Copyright (c) 2026 Niladri Das (bniladridas). All Rights Reserved.
+Copyright (c) 2026 Palmshed. All Rights Reserved.

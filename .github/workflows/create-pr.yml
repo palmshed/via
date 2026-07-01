@@ -30,7 +30,7 @@ permissions:
 jobs:
   create-pr:
     runs-on: ubuntu-latest
-    if: github.repository_owner == 'bniladridas'
+    if: github.repository_owner == 'Palmshed'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
