@@ -108,3 +108,4 @@ Please discuss larger architectural changes before opening a pull request.
 This project is proprietary. See `LICENSE` for the full terms.
 
 Copyright (c) 2026 Palmshed. All Rights Reserved.
+Sample change for PR demonstration.
