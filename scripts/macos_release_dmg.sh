@@ -6,10 +6,10 @@ DMG_PATH="${DMG_PATH:-build/macos/Build/Products/Release/via.dmg}"
 VOLUME_NAME="${VOLUME_NAME:-Via}"
 TMP_ROOT="${TMP_ROOT:-}"
 ALLOW_UNSIGNED="${ALLOW_UNSIGNED:-}"
-DMG_WINDOW_BOUNDS="${DMG_WINDOW_BOUNDS:-100,100,900,650}"
-DMG_ICON_SIZE="${DMG_ICON_SIZE:-128}"
-DMG_BACKGROUND_IMAGE="${DMG_BACKGROUND_IMAGE:-}"
-DMG_BACKGROUND_COLOR="${DMG_BACKGROUND_COLOR:-#6b6d70}" # e.g. "#6b6d70" (generates a solid PNG)
+DMG_WINDOW_BOUNDS="${DMG_WINDOW_BOUNDS:-100,100,720,500}"
+DMG_ICON_SIZE="${DMG_ICON_SIZE:-160}"
+DMG_BACKGROUND_IMAGE="${DMG_BACKGROUND_IMAGE:-assets/dmg_background.png}"
+DMG_BACKGROUND_COLOR="${DMG_BACKGROUND_COLOR:-}" # e.g. "#6b6d70" (generates a solid PNG)
 DMG_BACKGROUND_MIN_WIDTH="${DMG_BACKGROUND_MIN_WIDTH:-4096}"   # Ensure background covers fullscreen Finder windows.
 DMG_BACKGROUND_MIN_HEIGHT="${DMG_BACKGROUND_MIN_HEIGHT:-2560}" # Finder doesn't scale background pictures.
 DMG_BACKGROUND_MAX_WIDTH="${DMG_BACKGROUND_MAX_WIDTH:-8192}"
@@ -311,13 +311,7 @@ fi
 
 mounted_volume_name="$(basename "${mount_point}")"
 
-volume_icon_path="${APP_PATH}/Contents/Resources/AppIcon.icns"
-if [[ -f "${volume_icon_path}" ]]; then
-  cp "${volume_icon_path}" "${mount_point}/.VolumeIcon.icns"
-  if command -v SetFile >/dev/null 2>&1; then
-    SetFile -a C "${mount_point}" || true
-  fi
-fi
+# Custom volume icon will be applied after Finder configuration is complete.
 
 if [[ "${DMG_APPLICATIONS_LINK_TYPE}" == "alias" ]]; then
   # Create a native macOS alias for Applications (default).
@@ -414,11 +408,14 @@ on run argv
 		        end try
 		      end if
 		      try
-		        set position of item appItemName to {220, 300}
+		        set position of item appItemName to {170, 200}
 		      end try
 		      try
-		        set position of item "Applications" to {620, 300}
-	      end try
+		        set position of item "Applications" to {450, 200}
+		      end try
+		      try
+		        select {}
+		      end try
 	      close
 	      open
 	      update without registering applications
@@ -441,6 +438,23 @@ if command -v SetFile >/dev/null 2>&1; then
   fi
 fi
 
+# Apply custom volume icon after Finder window has been configured and closed
+volume_icon_path="${DMG_VOLUME_ICON:-assets/icons/volume_icon.icns}"
+if [[ -f "${volume_icon_path}" ]]; then
+  cp "${volume_icon_path}" "${mount_point}/.VolumeIcon.icns"
+  if command -v SetFile >/dev/null 2>&1; then
+    SetFile -a C "${mount_point}" || true
+  fi
+else
+  app_icon_path="${APP_PATH}/Contents/Resources/AppIcon.icns"
+  if [[ -f "${app_icon_path}" ]]; then
+    cp "${app_icon_path}" "${mount_point}/.VolumeIcon.icns"
+    if command -v SetFile >/dev/null 2>&1; then
+      SetFile -a C "${mount_point}" || true
+    fi
+  fi
+fi
+sync
 hdiutil detach "${device}" -quiet || {
   sleep 2
   hdiutil detach "${device}" -force -quiet
