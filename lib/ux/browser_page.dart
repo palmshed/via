@@ -32,6 +32,7 @@ import '../features/bookmark_manager.dart';
 import '../features/password_prompt.dart';
 import '../features/password_storage.dart';
 import 'clickable_icon.dart';
+import 'browser_navigation_controls.dart';
 import '../features/connectivity_service.dart';
 import '../features/password_autofill.dart';
 import '../features/login_detection.dart';
@@ -47,11 +48,14 @@ import '../utils/string_utils.dart';
 import '../utils/keyboard_utils.dart';
 import '../utils/url_utils.dart';
 import 'settings_dialog.dart';
+import 'browser_address_bar.dart';
 import 'package:pkg/ai_chat_widget.dart';
 import 'package:pkg/ai_service.dart';
 import 'network_debug_dialog.dart';
 import 'save_password_prompt.dart';
 import 'interaction_blocker.dart';
+import 'torry_home_view.dart';
+import 'browser_overflow_menu.dart';
 
 export '../features/theme_color_parser.dart';
 
@@ -626,13 +630,9 @@ class _BrowserPageState extends State<BrowserPage>
   StreamSubscription<bool>? _connectivitySubscription;
   late AnimationController _refreshIconController;
   AnimationController? _ambientController;
-  BuildContext? _urlAutocompleteTargetContext;
   OverlayEntry? _urlAutocompleteOverlayEntry;
   List<String> _urlAutocompleteOptions = const <String>[];
   double? _urlAutocompleteTargetWidth;
-  double _urlAutocompleteOverlayLeft = 0;
-  double _urlAutocompleteOverlayTop = 0;
-  double _urlAutocompleteOverlayBottom = 0;
   bool _urlAutocompleteOverlayUpdateQueued = false;
   int _lastUrlAutocompleteOverlayPointerDownMs = 0;
   Future<void> _historySaveQueue = Future<void>.value();
@@ -721,9 +721,12 @@ class _BrowserPageState extends State<BrowserPage>
   bool _isOverflowTriggerHovered = false;
   bool _isOverflowMenuHovered = false;
   bool _overflowMenuOpen = false;
+  final LayerLink _urlAutocompleteLayerLink = LayerLink();
+  final GlobalKey _urlAutocompleteTargetKey = GlobalKey();
   bool _urlAutocompleteOpen = false;
   bool _modalInteractionBlockOpen = false;
   bool _quickUrlPromptOpen = false;
+  bool _ignoreNextUrlFocusRestore = false;
   Widget? _androidFullscreenWidget;
   VoidCallback? _hideAndroidFullscreenWidget;
   bool _windowButtonsSyncRetryQueued = false;
@@ -1343,6 +1346,10 @@ class _BrowserPageState extends State<BrowserPage>
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted || tab.isClosed) return;
         if (tab.urlFocusNode.hasFocus) return;
+        if (_ignoreNextUrlFocusRestore) {
+          _ignoreNextUrlFocusRestore = false;
+          return;
+        }
         final nowMs = DateTime.now().millisecondsSinceEpoch;
         final interactedWithOverlayRecently =
             _urlAutocompleteOverlayEntry != null &&
@@ -1372,6 +1379,7 @@ class _BrowserPageState extends State<BrowserPage>
   }
 
   void _selectUrlAutocompleteOption(String value) {
+    _ignoreNextUrlFocusRestore = true;
     activeTab.urlFocusNode.unfocus();
     _removeUrlAutocompleteOverlay();
     _loadUrl(value);
@@ -1429,7 +1437,8 @@ class _BrowserPageState extends State<BrowserPage>
         _removeUrlAutocompleteOverlay();
         return;
       }
-      final targetBox = _urlAutocompleteTargetContext?.findRenderObject();
+      final targetBox =
+          _urlAutocompleteTargetKey.currentContext?.findRenderObject();
       if (targetBox is RenderBox && targetBox.hasSize) {
         _urlAutocompleteTargetWidth = targetBox.size.width;
         final overlayBox =
@@ -1447,11 +1456,6 @@ class _BrowserPageState extends State<BrowserPage>
           final showAbove = spaceBelow < _urlAutocompleteOverlayFlipThreshold &&
               spaceAbove > spaceBelow;
           _urlAutocompleteShowAbove = showAbove;
-          _urlAutocompleteOverlayLeft = dx;
-          _urlAutocompleteOverlayTop =
-              dy + targetBox.size.height + _urlAutocompleteOverlayOffset;
-          _urlAutocompleteOverlayBottom =
-              overlayBox.size.height - dy + _urlAutocompleteOverlayOffset;
           _urlAutocompleteOverlayMaxWidth =
               (overlayBox.size.width - dx - minMargin).clamp(
                   _urlAutocompleteOverlayMinWidth,
@@ -1593,14 +1597,21 @@ class _BrowserPageState extends State<BrowserPage>
                     _removeUrlAutocompleteOverlay();
                   },
                 ),
-                Positioned(
-                  left: _urlAutocompleteOverlayLeft,
-                  top: _urlAutocompleteShowAbove
-                      ? null
-                      : _urlAutocompleteOverlayTop,
-                  bottom: _urlAutocompleteShowAbove
-                      ? _urlAutocompleteOverlayBottom
-                      : null,
+                CompositedTransformFollower(
+                  link: _urlAutocompleteLayerLink,
+                  showWhenUnlinked: false,
+                  targetAnchor: _urlAutocompleteShowAbove
+                      ? Alignment.topLeft
+                      : Alignment.bottomLeft,
+                  followerAnchor: _urlAutocompleteShowAbove
+                      ? Alignment.bottomLeft
+                      : Alignment.topLeft,
+                  offset: Offset(
+                    0,
+                    _urlAutocompleteShowAbove
+                        ? -_urlAutocompleteOverlayOffset
+                        : _urlAutocompleteOverlayOffset,
+                  ),
                   child: Listener(
                     behavior: HitTestBehavior.opaque,
                     onPointerDown: (_) {
@@ -4705,172 +4716,38 @@ class _BrowserPageState extends State<BrowserPage>
     }
   }
 
-  Widget _buildMenuItem(
-    BuildContext context, {
-    required String value,
-    required IconData icon,
-    required String label,
-  }) {
-    final theme = Theme.of(context);
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) {
-        _isOverflowMenuHovered = true;
-        _cancelOverflowMenuClose();
-      },
-      onExit: (_) {
-        _isOverflowMenuHovered = false;
-        _scheduleOverflowMenuClose();
-      },
-      child: GestureDetector(
-        onTap: () {
-          _overflowMenuController.close();
-          unawaited(_handleMenuSelection(value));
-        },
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          child: Row(
-            children: [
-              Icon(icon, size: 16, color: theme.colorScheme.onSurfaceVariant),
-              const SizedBox(width: 10),
-              Text(
-                label,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w400,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  List<Widget> _buildMenuEntries(BuildContext context) {
-    return [
-      _buildMenuItem(
-        context,
-        value: 'add_bookmark',
-        icon: Icons.bookmark_add,
-        label: 'Add Bookmark',
-      ),
-      _buildMenuItem(
-        context,
-        value: 'view_bookmarks',
-        icon: Icons.bookmarks,
-        label: 'Bookmarks',
-      ),
-      _buildMenuItem(
-        context,
-        value: 'history',
-        icon: Icons.history,
-        label: 'History',
-      ),
-      if (widget.aiAvailable)
-        _buildMenuItem(
-          context,
-          value: 'ai_chat',
-          icon: Icons.smart_toy,
-          label: 'AI Chat',
-        ),
-      _buildMenuItem(
-        context,
-        value: 'page_font',
-        icon: Icons.font_download,
-        label: 'Page Font',
-      ),
-      _buildMenuItem(
-        context,
-        value: 'settings',
-        icon: Icons.settings,
-        label: 'Settings',
-      ),
-      _buildMenuItem(
-        context,
-        value: 'whats_new',
-        icon: Icons.new_releases_outlined,
-        label: "What's New",
-      ),
-      _buildMenuItem(
-        context,
-        value: 'onion_directory',
-        icon: Icons.list,
-        label: 'Onion directory',
-      ),
-      _buildMenuItem(
-        context,
-        value: 'anonymous_view',
-        icon: Icons.visibility,
-        label: 'Anonymous view',
-      ),
-      _buildMenuItem(
-        context,
-        value: 'network_debug',
-        icon: Icons.network_check,
-        label: 'Network Debug',
-      ),
-    ];
-  }
-
   Widget _buildMenuButton({
     double iconSize = 20,
     EdgeInsetsGeometry padding = const EdgeInsets.all(8),
   }) {
-    return MenuAnchor(
+    return BrowserOverflowMenu(
       controller: _overflowMenuController,
-      consumeOutsideTap: true,
-      style: MenuStyle(
-        shape: WidgetStatePropertyAll(
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        ),
-        minimumSize: const WidgetStatePropertyAll(Size(184, 0)),
-        padding: const WidgetStatePropertyAll(
-          EdgeInsets.symmetric(vertical: 6),
-        ),
-        elevation: const WidgetStatePropertyAll(8),
-        shadowColor: WidgetStatePropertyAll(
-          Colors.black.withValues(alpha: 0.18),
-        ),
-      ),
-      onClose: () {
-        _isOverflowMenuHovered = false;
-        _isOverflowTriggerHovered = false;
-        _cancelOverflowMenuClose();
-        _setOverflowMenuOpen(false);
+      aiAvailable: widget.aiAvailable,
+      menuOpen: _overflowMenuOpen,
+      iconSize: iconSize,
+      padding: padding,
+      onOpenChanged: (open) {
+        _setOverflowMenuOpen(open);
       },
-      menuChildren: _buildMenuEntries(context),
-      builder: (context, controller, child) {
-        return MouseRegion(
-          onEnter: (_) {
-            _isOverflowTriggerHovered = true;
-            _cancelOverflowMenuClose();
-          },
-          onExit: (_) {
-            _isOverflowTriggerHovered = false;
-            _scheduleOverflowMenuClose();
-          },
-          child: MouseRegion(
-            cursor: SystemMouseCursors.click,
-            child: GestureDetector(
-              onTap: () {
-                if (controller.isOpen) {
-                  controller.close();
-                  _setOverflowMenuOpen(false);
-                  return;
-                }
-                controller.open();
-                _setOverflowMenuOpen(true);
-              },
-              child: Padding(
-                padding: padding,
-                child: Icon(Icons.more_vert,
-                    size: iconSize,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant),
-              ),
-            ),
-          ),
-        );
+      onSelection: (value) async {
+        _overflowMenuController.close();
+        await _handleMenuSelection(value);
+      },
+      onTriggerHoverChanged: (hovered) {
+        _isOverflowTriggerHovered = hovered;
+        if (hovered) {
+          _cancelOverflowMenuClose();
+        } else {
+          _scheduleOverflowMenuClose();
+        }
+      },
+      onMenuHoverChanged: (hovered) {
+        _isOverflowMenuHovered = hovered;
+        if (hovered) {
+          _cancelOverflowMenuClose();
+        } else {
+          _scheduleOverflowMenuClose();
+        }
       },
     );
   }
@@ -5492,112 +5369,13 @@ class _BrowserPageState extends State<BrowserPage>
     final colorScheme = theme.colorScheme;
     final useAmbient = _ambientActive;
 
-    return Container(
-      color: useAmbient
-          ? colorScheme.surface.withValues(alpha: 0.64)
-          : colorScheme.surface,
-      child: SafeArea(
-        bottom: false,
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            const horizontalPadding = 18.0;
-            const verticalPadding = 28.0;
-            final topBreathingRoom =
-                (constraints.maxHeight * 0.12).clamp(48.0, 160.0);
-
-            return SingleChildScrollView(
-              padding: EdgeInsets.fromLTRB(
-                horizontalPadding,
-                topBreathingRoom,
-                horizontalPadding,
-                verticalPadding,
-              ),
-              child: Align(
-                alignment: Alignment.topCenter,
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 520),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: Image.asset(
-                          'assets/icons/app_icon.png',
-                          width: 52,
-                          height: 52,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Icon(
-                              Icons.security,
-                              size: 52,
-                              color: colorScheme.onSurfaceVariant,
-                            );
-                          },
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        decoration: BoxDecoration(
-                          color: colorScheme.surfaceContainerHighest,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: colorScheme.outline.withValues(alpha: 0.35),
-                          ),
-                        ),
-                        child: TextField(
-                          controller: tab.torrySearchController,
-                          focusNode: tab.torrySearchFocusNode,
-                          textInputAction: TextInputAction.search,
-                          textAlignVertical: TextAlignVertical.center,
-                          style: theme.textTheme.bodyMedium
-                              ?.copyWith(fontSize: 13),
-                          onSubmitted: (s) => _performTorrySearch(tab, s),
-                          decoration: InputDecoration(
-                            hintText: 'Search',
-                            hintStyle: TextStyle(
-                              color: colorScheme.onSurface.withValues(alpha: 0.38),
-                            ),
-                            isDense: true,
-                            border: InputBorder.none,
-                            contentPadding:
-                                const EdgeInsets.symmetric(vertical: 12),
-                            prefixIcon: Icon(
-                              Icons.search,
-                              color: colorScheme.onSurface.withValues(alpha: 0.5),
-                              size: 18,
-                            ),
-                            prefixIconConstraints: const BoxConstraints(
-                              minHeight: 36,
-                              minWidth: 42,
-                            ),
-                            suffixIcon: MouseRegion(
-                              cursor: SystemMouseCursors.click,
-                              child: GestureDetector(
-                                onTap: () => _performTorrySearch(tab),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(8),
-                                  child: Icon(
-                                    Icons.arrow_forward,
-                                    color: colorScheme.onSurface.withValues(alpha: 0.5),
-                                    size: 20,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-
-                    ],
-                  ),
-                ),
-              ),
-            );
-          },
-        ),
-      ),
+    return TorryHomeView(
+      tab: tab,
+      theme: theme,
+      colorScheme: colorScheme,
+      useAmbient: useAmbient,
+      onSubmitted: (s) => _performTorrySearch(tab, s),
+      onTapSearch: () => _performTorrySearch(tab),
     );
   }
 
@@ -6466,25 +6244,14 @@ class _BrowserPageState extends State<BrowserPage>
                   tintColor: toolbarPillColor,
                   frosted: useAmbient,
                   border: null,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      ClickableIcon(
-                        icon: Icons.arrow_back_ios,
-                        size: 16,
-                        color: toolbarForeground,
-                        padding: EdgeInsets.all(isMobilePlatform ? 7 : 8),
-                        onTap: _goBack,
-                      ),
-                      ClickableIcon(
-                        icon: Icons.arrow_forward_ios,
-                        size: 16,
-                        color: toolbarForeground,
-                        padding: EdgeInsets.all(isMobilePlatform ? 7 : 8),
-                        onTap: _goForward,
-                      ),
-                    ],
-                  ),
+                  child: BrowserNavigationControls(
+                  toolbarForeground: toolbarForeground,
+                  isMobilePlatform: isMobilePlatform,
+                  onBackTap: _goBack,
+                  onForwardTap: _goForward,
+                  onRefreshTap: _refresh,
+                  onHomeTap: () {},
+                ),
                 ),
               ),
               ClickableIcon(
@@ -6505,187 +6272,62 @@ class _BrowserPageState extends State<BrowserPage>
                 tintColor: addressPillColor,
                 frosted: useAmbient,
                 border: null,
-                child: Row(
-                  children: [
-                    SizedBox(width: leadingInset),
-                    MouseRegion(
-                      cursor: SystemMouseCursors.click,
-                      child: GestureDetector(
-                        onTap: () {
-                          final text = activeTab.urlController.text;
-                          final decision = resolveUrlSubmission(
-                            submittedValue: text,
-                            aiSearchSuggestionsEnabled:
-                                widget.aiSearchSuggestionsEnabled,
-                          );
-                          if (decision.shouldShowAiSuggestions) {
-                            _showAiSearchSuggestionsSheet();
-                          }
-                          if (decision.shouldLoadUrl) {
-                            _removeUrlAutocompleteOverlay();
-                            activeTab.urlFocusNode.unfocus();
-                            _loadUrl(decision.normalizedInput);
-                          }
-                        },
-                        child: Icon(
-                          Icons.search,
-                          color: toolbarForeground.withValues(alpha: 0.45),
-                          size: 16,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: MouseRegion(
-                        onEnter: (_) => _handleAddressBarHoverChanged(true),
-                        onExit: (_) => _handleAddressBarHoverChanged(false),
-                        child: Align(
-                          alignment: Alignment.centerLeft,
-                          child: AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 180),
-                            switchInCurve: Curves.easeOut,
-                            switchOutCurve: Curves.easeIn,
-                            transitionBuilder: (child, animation) {
-                              return FadeTransition(
-                                opacity: animation,
-                                child: SizeTransition(
-                                  sizeFactor: animation,
-                                  axis: Axis.horizontal,
-                                  // ignore: deprecated_member_use
-                                  axisAlignment: -1.0,
-                                  child: child,
-                                ),
-                              );
-                            },
-                            child: activeTab.isUrlObscured
-                                ? SizedBox(
-                                    key: const ValueKey('url_obscured'),
-                                    height: 34,
-                                    child: Align(
-                                      alignment: Alignment.centerLeft,
-                                      child: Padding(
-                                        padding: const EdgeInsets.only(left: 4),
-                                        child: ClipRRect(
-                                          borderRadius: BorderRadius.circular(3),
-                                          child: Image.asset(
-                                            'assets/icons/app_icon.png',
-                                            width: 20,
-                                            height: 20,
-                                            fit: BoxFit.cover,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  )
-                                : KeyedSubtree(
-                                    key: const ValueKey('url_field'),
-                                    child: Builder(
-                                      builder: (context) {
-                                        _urlAutocompleteTargetContext = context;
-                                        return TextField(
-                                          key: const Key('browser.url_field'),
-                                          controller: activeTab.urlController,
-                                          focusNode: activeTab.urlFocusNode,
-                                          onChanged: (_) =>
-                                              _updateUrlAutocompleteOverlay(
-                                            activeTab,
-                                          ),
-                                          style: TextStyle(
-                                            color: toolbarForeground,
-                                            fontSize: 13,
-                                          ),
-                                          decoration: InputDecoration(
-                                            hintText: 'Search',
-                                            hintStyle: TextStyle(
-                                              color: toolbarForeground
-                                                  .withValues(alpha: 0.38),
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.w400,
-                                            ),
-                                            border: InputBorder.none,
-                                            contentPadding:
-                                                const EdgeInsets.symmetric(
-                                              vertical: 6,
-                                            ),
-                                          ),
-                                          onTap: () {
-                                            _cancelAddressBarAutoHide();
-                                            _setActiveTabUrlObscured(false);
-                                            if (widget
-                                                    .aiSearchSuggestionsEnabled &&
-                                                activeTab.urlController.text
-                                                    .trim()
-                                                    .isEmpty) {
-                                              _showAiSearchSuggestionsSheet();
-                                            } else {
-                                              _updateUrlAutocompleteOverlay(
-                                                activeTab,
-                                              );
-                                            }
-                                          },
-                                          onSubmitted: (value) {
-                                            _removeUrlAutocompleteOverlay();
-                                            activeTab.urlFocusNode.unfocus();
-                                            final decision =
-                                                resolveUrlSubmission(
-                                              submittedValue: value,
-                                              aiSearchSuggestionsEnabled: widget
-                                                  .aiSearchSuggestionsEnabled,
-                                            );
-                                            if (decision
-                                                .shouldShowAiSuggestions) {
-                                              _showAiSearchSuggestionsSheet();
-                                            }
-                                            if (decision.shouldLoadUrl) {
-                                              _loadUrl(
-                                                  decision.normalizedInput);
-                                            }
-                                          },
-                                        );
-                                      },
-                                    ),
-                                  ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    Padding(
-                      padding: EdgeInsets.only(right: leadingInset),
-                      child: MouseRegion(
-                        cursor: SystemMouseCursors.click,
-                        child: GestureDetector(
-                          onTap: _refresh,
-                          child: RotationTransition(
-                            turns: _refreshIconController,
-                            child: Icon(
-                              Icons.refresh,
-                              color: toolbarForeground,
-                              size: 18,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    if (activeTab.hasMediaPlaying)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: MouseRegion(
-                          cursor: SystemMouseCursors.click,
-                          child: GestureDetector(
-                            onTap: _toggleMute,
-                            child: Icon(
-                              activeTab.isMuted
-                                  ? Icons.volume_off
-                                  : Icons.volume_up,
-                              color: activeTab.isMuted
-                                  ? toolbarForeground.withValues(alpha: 0.5)
-                                  : toolbarForeground,
-                              size: 18,
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
+                child: BrowserAddressBar(
+                  tab: activeTab,
+                  toolbarForeground: toolbarForeground,
+                  leadingInset: leadingInset,
+                  aiSearchSuggestionsEnabled: widget.aiSearchSuggestionsEnabled,
+                  useAmbient: useAmbient,
+                  urlFieldLayerLink: _urlAutocompleteLayerLink,
+                  urlFieldTargetKey: _urlAutocompleteTargetKey,
+                  refreshTurns: _refreshIconController,
+                  onSearchTap: () {
+                    final text = activeTab.urlController.text;
+                    final decision = resolveUrlSubmission(
+                      submittedValue: text,
+                      aiSearchSuggestionsEnabled:
+                          widget.aiSearchSuggestionsEnabled,
+                    );
+                    if (decision.shouldShowAiSuggestions) {
+                      _showAiSearchSuggestionsSheet();
+                    }
+                    if (decision.shouldLoadUrl) {
+                      _removeUrlAutocompleteOverlay();
+                      activeTab.urlFocusNode.unfocus();
+                      _loadUrl(decision.normalizedInput);
+                    }
+                  },
+                  onRefreshTap: _refresh,
+                  onToggleMuteTap: _toggleMute,
+                  onUrlChanged: (_) => _updateUrlAutocompleteOverlay(activeTab),
+                  onUrlTap: () {
+                    _cancelAddressBarAutoHide();
+                    _setActiveTabUrlObscured(false);
+                    if (widget.aiSearchSuggestionsEnabled &&
+                        activeTab.urlController.text.trim().isEmpty) {
+                      _showAiSearchSuggestionsSheet();
+                    } else {
+                      _updateUrlAutocompleteOverlay(activeTab);
+                    }
+                  },
+                  onUrlSubmitted: (value) {
+                    _removeUrlAutocompleteOverlay();
+                    activeTab.urlFocusNode.unfocus();
+                    final decision = resolveUrlSubmission(
+                      submittedValue: value,
+                      aiSearchSuggestionsEnabled:
+                          widget.aiSearchSuggestionsEnabled,
+                    );
+                    if (decision.shouldShowAiSuggestions) {
+                      _showAiSearchSuggestionsSheet();
+                    }
+                    if (decision.shouldLoadUrl) {
+                      _loadUrl(decision.normalizedInput);
+                    }
+                  },
+                  onAddressBarHoverChanged: _handleAddressBarHoverChanged,
+                  hasMediaPlaying: activeTab.hasMediaPlaying,
+                  isMuted: activeTab.isMuted,
                 ),
               ),
             ),
@@ -6898,61 +6540,16 @@ class _BrowserPageState extends State<BrowserPage>
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    MouseRegion(
-                      cursor: SystemMouseCursors.click,
-                      child: GestureDetector(
-                        onTap: _goBack,
-                        child: Padding(
-                          padding: const EdgeInsets.all(8),
-                          child: Icon(Icons.arrow_back_ios,
-                              size: 18,
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurfaceVariant),
-                        ),
-                      ),
-                    ),
-                    MouseRegion(
-                      cursor: SystemMouseCursors.click,
-                      child: GestureDetector(
-                        onTap: _goForward,
-                        child: Padding(
-                          padding: const EdgeInsets.all(8),
-                          child: Icon(Icons.arrow_forward_ios,
-                              size: 18,
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurfaceVariant),
-                        ),
-                      ),
-                    ),
-                    MouseRegion(
-                      cursor: SystemMouseCursors.click,
-                      child: GestureDetector(
-                        onTap: _showQuickUrlPrompt,
-                        child: Padding(
-                          padding: const EdgeInsets.all(8),
-                          child: Icon(Icons.search,
-                              size: 18,
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurfaceVariant),
-                        ),
-                      ),
-                    ),
-                    MouseRegion(
-                      cursor: SystemMouseCursors.click,
-                      child: GestureDetector(
-                        onTap: _refresh,
-                        child: Padding(
-                          padding: const EdgeInsets.all(8),
-                          child: Icon(Icons.refresh,
-                              size: 18,
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurfaceVariant),
-                        ),
-                      ),
+                    BrowserNavigationControls(
+                      toolbarForeground: Theme.of(context)
+                          .colorScheme
+                          .onSurfaceVariant,
+                      isMobilePlatform: isMobilePlatform,
+                      onBackTap: _goBack,
+                      onForwardTap: _goForward,
+                      onRefreshTap: _refresh,
+                      onHomeTap: _showQuickUrlPrompt,
+                      showHomeButton: true,
                     ),
                     MouseRegion(
                       cursor: SystemMouseCursors.click,
