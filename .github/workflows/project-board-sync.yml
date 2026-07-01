@@ -26,5 +26,5 @@ jobs:
       - name: Sync item
         uses: actions/add-to-project@v1.0.2
         with:
-          project-url: https://github.com/users/Palmshed/projects/10
+          project-url: https://github.com/users/Palmshed/projects/1
           github-token: ${{ secrets.ADD_TO_PROJECT_PAT }}

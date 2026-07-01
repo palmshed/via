@@ -5,7 +5,7 @@
 # Use of this source code is governed by a MIT license that can be
 # found in the LICENSE file.
 
-name: Browser
+    name: Via
 
 on:
   push:
@@ -15,7 +15,7 @@ on:
 
 jobs:
   check:
-    name: Browser
+name: Via
     runs-on: ubuntu-latest
     if: github.repository_owner == 'Palmshed'
     permissions:
@@ -43,10 +43,10 @@ jobs:
 
           gh api "repos/$REPO/check-runs" \
             -X POST \
-            -f name='Browser' \
+            -f name='Via' \
             -f head_sha="$HEAD_SHA" \
             -f status='completed' \
             -f conclusion='success' \
-            -f 'output[title]=Browser automation' \
-            -f 'output[summary]=Browser app automation is active for this ref.' \
+            -f 'output[title]=Via automation' \
+            -f 'output[summary]=Via app automation is active for this ref.' \
             --silent
