@@ -43,6 +43,7 @@ import '../features/webauthn_service.dart';
 import '../browser_state.dart';
 import '../main.dart' show profileManager;
 import '../models/user_profile.dart';
+import '../models/tab_data.dart';
 
 import '../logging/logger.dart';
 import '../logging/network_monitor.dart';
@@ -2039,46 +2040,6 @@ class CloseTabIntent extends Intent {}
 class NewWindowIntent extends Intent {}
 
 class PageFontIntent extends Intent {}
-
-class TabData {
-  String currentUrl;
-  String? pageTitle;
-  final TextEditingController urlController;
-  final FocusNode urlFocusNode;
-  bool isUrlObscured = false;
-  bool hasUserInteractedWithPage = false;
-  final TextEditingController torrySearchController;
-  final FocusNode torrySearchFocusNode;
-  WebViewController? webViewController;
-  BrowserState state = const BrowserState.idle();
-  final List<String> history = [];
-  bool isClosed = false;
-  String? lastErrorMessage;
-  DateTime? lastErrorAt;
-  Brightness? detectedBrightness;
-  Color? detectedSeedColor;
-  Color? ambientSeedColor;
-  DateTime? lastAmbientProbeAt;
-  double scrollOffset = 0;
-  SavePasswordPromptData? pendingPasswordPrompt;
-  String? faviconUrl;
-  String? pendingNavigationUrl;
-  String? pendingNavigationSourceUrl;
-  bool isResolvingPageTitle = false;
-  String? forwardUrl; // URL to go forward to when on home page
-  String? homeLaunchedSiteFamily;
-  bool hideStaleWebViewUntilPageFinish = false;
-  bool pageRequestedWindowFullscreen = false;
-  bool windowWasFullscreenBeforePageRequest = false;
-  bool isMuted = false;
-  bool hasMediaPlaying = false;
-
-  TabData(this.currentUrl, {String? displayUrl})
-      : urlController = TextEditingController(text: displayUrl ?? currentUrl),
-        urlFocusNode = FocusNode(),
-        torrySearchController = TextEditingController(),
-        torrySearchFocusNode = FocusNode();
-}
 
 class _ThemeTone {
   final Brightness brightness;
