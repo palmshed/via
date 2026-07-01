@@ -64,7 +64,7 @@ final class BrowserMenuBarController: NSObject {
       button.image = makeStatusItemImage()
       button.imagePosition = .imageOnly
       button.title = ""
-      button.toolTip = "Browser"
+      button.toolTip = "Via"
       button.target = self
       button.action = #selector(handleStatusItemButtonPress(_:))
       button.sizeToFit()
@@ -74,7 +74,7 @@ final class BrowserMenuBarController: NSObject {
     let menu = NSMenu()
     menu.delegate = self
     let appInfoItem = NSMenuItem(
-      title: "Browser",
+      title: "Via",
       action: nil,
       keyEquivalent: ""
     )

@@ -2,6 +2,9 @@
   "signed": [
     "bniladridas",
     "browser-dart[bot]",
-    "github-actions[bot]"
+    "palmshed-via[bot]",
+    "github-actions[bot]",
+    "github-copilot[bot]",
+    "copilot[bot]"
   ]
 }

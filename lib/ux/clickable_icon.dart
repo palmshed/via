@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 //
-// Copyright 2026 bniladridas. All rights reserved.
+// Copyright 2026 Palmshed. All rights reserved.
 // Use of this source code is governed by a MIT license that can be
 // found in the LICENSE file.
 
 import 'package:flutter/material.dart';
 
-class ClickableIcon extends StatelessWidget {
+class ClickableIcon extends StatefulWidget {
   final IconData icon;
   final VoidCallback? onTap;
   final double? size;
@@ -23,17 +23,34 @@ class ClickableIcon extends StatelessWidget {
   });
 
   @override
+  State<ClickableIcon> createState() => _ClickableIconState();
+}
+
+class _ClickableIconState extends State<ClickableIcon> {
+  bool _isHovered = false;
+
+  @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return MouseRegion(
       cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
       child: GestureDetector(
-        onTap: onTap,
-        child: Padding(
-          padding: padding,
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 100),
+          padding: widget.padding,
+          decoration: BoxDecoration(
+            color: _isHovered
+                ? scheme.onSurface.withValues(alpha: 0.08)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(6),
+          ),
           child: Icon(
-            icon,
-            size: size,
-            color: color ?? Theme.of(context).colorScheme.onSurfaceVariant,
+            widget.icon,
+            size: widget.size,
+            color: widget.color ?? scheme.onSurfaceVariant,
           ),
         ),
       ),

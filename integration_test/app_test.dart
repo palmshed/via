@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 //
-// Copyright 2026 bniladridas. All rights reserved.
+// Copyright 2026 Palmshed. All rights reserved.
 // Use of this source code is governed by a MIT license that can be
 // found in the LICENSE file.
 
@@ -124,7 +124,7 @@ void main() {
       // Check for navigation buttons
       expect(find.byIcon(Icons.arrow_back_ios), findsOneWidget);
       expect(find.byIcon(Icons.arrow_forward_ios), findsOneWidget);
-      expect(find.byIcon(Icons.refresh), findsOneWidget);
+      expect(find.byIcon(Icons.refresh), findsNWidgets(2));
     }, timeout: testTimeout);
 
     testWidgets('Bookmark adding and viewing', (WidgetTester tester) async {
@@ -179,7 +179,7 @@ void main() {
       await _launchApp(tester);
 
       // Enter URL with special characters
-      const specialUrl = 'https://github.com/bniladridas/browser?tab=readme';
+      const specialUrl = 'https://github.com/Palmshed/browser?tab=readme';
       expect(urlFieldFinder(), findsOneWidget);
       await tester.enterText(urlFieldFinder(), specialUrl);
       await tester.testTextInput.receiveAction(TextInputAction.done);

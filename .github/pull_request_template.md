@@ -1,5 +1,5 @@
 <!--
-Copyright 2026 Niladri Das (bniladridas). All rights reserved.
+Copyright 2026 Palmshed. All rights reserved.
 This source code is proprietary. Unauthorized use, modification, or
 distribution is strictly prohibited. See LICENSE for full terms.
 -->

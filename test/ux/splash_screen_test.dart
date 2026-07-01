@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 //
-// Copyright 2026 bniladridas. All rights reserved.
+// Copyright 2026 Palmshed. All rights reserved.
 // Use of this source code is governed by a MIT license that can be
 // found in the LICENSE file.
 
@@ -17,7 +17,7 @@ void main() {
       ),
     );
 
-    expect(find.text('Browser'), findsOneWidget);
+    expect(find.text('Via'), findsOneWidget);
     expect(find.byType(LinearProgressIndicator), findsOneWidget);
     expect(find.byType(Image), findsOneWidget);
   });

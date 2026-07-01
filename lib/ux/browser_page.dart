@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 //
-// Copyright 2026 bniladridas. All rights reserved.
+// Copyright 2026 Palmshed. All rights reserved.
 // Use of this source code is governed by a MIT license that can be
 // found in the LICENSE file.
 
@@ -9,7 +9,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:passkeys/types.dart';
@@ -27,35 +26,48 @@ import 'package:file_selector/file_selector.dart';
 import 'package:desktop_drop/desktop_drop.dart';
 
 import '../constants.dart';
-import '../features/theme_color_parser.dart';
 import '../features/theme_utils.dart';
 import '../features/bookmark_manager.dart';
-import '../features/firebase_config_store.dart';
 import '../features/password_prompt.dart';
 import '../features/password_storage.dart';
 import 'clickable_icon.dart';
+import 'browser_navigation_controls.dart';
 import '../features/connectivity_service.dart';
 import '../features/password_autofill.dart';
 import '../features/login_detection.dart';
-import '../features/update_service.dart';
 import '../features/webauthn_script.dart';
 import '../features/webauthn_service.dart';
 import '../browser_state.dart';
 import '../main.dart' show profileManager;
-import '../models/user_profile.dart';
+import '../models/tab_data.dart';
 
+import '../assets/page_scripts.dart';
 import '../logging/logger.dart';
 import '../logging/network_monitor.dart';
 import '../utils/string_utils.dart';
 import '../utils/keyboard_utils.dart';
+import '../utils/url_utils.dart';
+import '../utils/favicon_url_policy.dart';
+import '../services/favicon_service.dart';
+import '../services/history_service.dart';
+import '../services/theme_probe_service.dart';
+import '../services/fullscreen_service.dart';
+import '../services/pointer_events_service.dart';
+import '../utils/navigation_resolver.dart';
+import '../utils/media_playback_state.dart';
+import 'settings_dialog.dart';
+import 'browser_address_bar.dart';
 import 'package:pkg/ai_chat_widget.dart';
 import 'package:pkg/ai_service.dart';
 import 'network_debug_dialog.dart';
 import 'save_password_prompt.dart';
-import 'password_vault_screen.dart';
 import 'interaction_blocker.dart';
+import 'torry_home_view.dart';
+import 'browser_overflow_menu.dart';
 
 export '../features/theme_color_parser.dart';
+export '../utils/navigation_resolver.dart';
+export '../utils/media_playback_state.dart';
 
 const _userAgents = {
   TargetPlatform.android: {
@@ -97,396 +109,7 @@ String _getUserAgent(bool useLegacy) {
   return platformAgents[agentType]!;
 }
 
-class UrlUtils {
-  static String processUrl(String url) {
-    if (url.startsWith('file://')) {
-      return url;
-    }
-    if (!url.contains('://')) {
-      if (url.contains(' ') ||
-          (!url.contains('.') &&
-              !url.contains(':') &&
-              url.toLowerCase() != 'localhost')) {
-        url = 'https://www.google.com/search?q=${Uri.encodeComponent(url)}';
-      } else {
-        url = 'https://$url';
-      }
-    }
-    return url;
-  }
 
-  static bool isValidUrl(String url) {
-    final uri = Uri.tryParse(url);
-    return uri != null && const {'http', 'https', 'file'}.contains(uri.scheme);
-  }
-}
-
-class UrlSubmissionDecision {
-  const UrlSubmissionDecision({
-    required this.normalizedInput,
-    required this.shouldLoadUrl,
-    required this.shouldShowAiSuggestions,
-  });
-
-  final String normalizedInput;
-  final bool shouldLoadUrl;
-  final bool shouldShowAiSuggestions;
-}
-
-@visibleForTesting
-UrlSubmissionDecision resolveUrlSubmission({
-  required String submittedValue,
-  required bool aiSearchSuggestionsEnabled,
-}) {
-  final normalized = submittedValue.trim();
-  if (normalized.isEmpty) {
-    return UrlSubmissionDecision(
-      normalizedInput: normalized,
-      shouldLoadUrl: false,
-      shouldShowAiSuggestions: aiSearchSuggestionsEnabled,
-    );
-  }
-  return UrlSubmissionDecision(
-    normalizedInput: normalized,
-    shouldLoadUrl: true,
-    shouldShowAiSuggestions: false,
-  );
-}
-
-@visibleForTesting
-String resolveNavigationEventUrl({
-  required String eventUrl,
-  required String? controllerUrl,
-  String? pendingUrl,
-  String? previousUrl,
-}) {
-  final normalizedEventUrl = eventUrl.trim();
-  final normalizedControllerUrl = controllerUrl?.trim();
-  final normalizedPendingUrl = pendingUrl?.trim();
-
-  String candidate = '';
-  if (normalizedEventUrl.isNotEmpty && normalizedEventUrl != 'about:blank') {
-    candidate = normalizedEventUrl;
-  } else if (normalizedControllerUrl != null &&
-      normalizedControllerUrl.isNotEmpty) {
-    candidate = normalizedControllerUrl;
-  }
-
-  if (normalizedPendingUrl != null && normalizedPendingUrl.isNotEmpty) {
-    if (candidate.isEmpty) {
-      return normalizedPendingUrl;
-    }
-    if (_urlsShareSite(candidate, previousUrl)) {
-      return normalizedPendingUrl;
-    }
-  }
-
-  if (candidate.isNotEmpty) {
-    return candidate;
-  }
-  return normalizedPendingUrl ?? normalizedEventUrl;
-}
-
-String? _siteKeyForUrl(String? rawUrl) {
-  if (rawUrl == null) return null;
-  final normalized = rawUrl.trim();
-  if (normalized.isEmpty) return null;
-  final uri = Uri.tryParse(normalized);
-  final host = uri?.host.toLowerCase() ?? '';
-  if (host.isEmpty) return normalized;
-  return host.startsWith('www.') ? host.substring(4) : host;
-}
-
-bool _urlsShareSite(String? firstUrl, String? secondUrl) {
-  final firstKey = _siteKeyForUrl(firstUrl);
-  final secondKey = _siteKeyForUrl(secondUrl);
-  if (firstKey == null || secondKey == null) return false;
-  return firstKey == secondKey;
-}
-
-String? _siteFamilyKeyForUrl(String? rawUrl) {
-  final siteKey = _siteKeyForUrl(rawUrl);
-  if (siteKey == null || siteKey.isEmpty) return null;
-  if (!siteKey.contains('.')) return siteKey;
-  final parts = siteKey.split('.');
-  if (parts.length < 2) return siteKey;
-  return '${parts[parts.length - 2]}.${parts[parts.length - 1]}';
-}
-
-@visibleForTesting
-bool shouldReturnHomeOnBack({
-  required String currentUrl,
-  required String homeUrl,
-  required String? homeLaunchedSiteFamily,
-}) {
-  if (homeUrl.trim() != defaultHomepageUrl) {
-    return false;
-  }
-  final normalizedCurrent = currentUrl.trim();
-  if (normalizedCurrent.isEmpty || normalizedCurrent == defaultHomepageUrl) {
-    return false;
-  }
-  if (homeLaunchedSiteFamily == null || homeLaunchedSiteFamily.isEmpty) {
-    return false;
-  }
-  return _siteFamilyKeyForUrl(normalizedCurrent) == homeLaunchedSiteFamily;
-}
-
-class MediaPlaybackState {
-  const MediaPlaybackState({required this.hasPlayingMedia});
-
-  final bool hasPlayingMedia;
-}
-
-@visibleForTesting
-MediaPlaybackState? parseMediaPlaybackStateMessage(String message) {
-  try {
-    final decoded = jsonDecode(message);
-    if (decoded is! Map<String, dynamic>) return null;
-    if (decoded['type'] != 'playback') return null;
-    final hasPlayingMedia = decoded['hasPlayingMedia'];
-    if (hasPlayingMedia is! bool) return null;
-    return MediaPlaybackState(hasPlayingMedia: hasPlayingMedia);
-  } catch (_) {
-    return null;
-  }
-}
-
-@visibleForTesting
-String buildMediaBridgeScript({required bool muted}) {
-  final mutedLiteral = muted ? 'true' : 'false';
-  return '''
-    (function() {
-      const desiredMuted = $mutedLiteral;
-      window.__browserMutedPreference = desiredMuted;
-      if (window.__browserMuteEnforcerInterval &&
-          window.__browserMutedPreference !== true) {
-        clearInterval(window.__browserMuteEnforcerInterval);
-        window.__browserMuteEnforcerInterval = null;
-      }
-
-      const getMediaElements = function(root) {
-        if (!root) return [];
-        if (root.matches && root.matches('video, audio')) {
-          return [root];
-        }
-        if (!root.querySelectorAll) return [];
-        return Array.from(root.querySelectorAll('video, audio'));
-      };
-
-      const applyMutePreference = function(media) {
-        if (!media) return;
-        const shouldMute = window.__browserMutedPreference === true;
-        media.muted = shouldMute;
-        if ('defaultMuted' in media) {
-          media.defaultMuted = shouldMute;
-        }
-      };
-
-      const applyMutePreferenceToAll = function(root) {
-        getMediaElements(root).forEach(applyMutePreference);
-      };
-
-      const reportPlaybackState = function() {
-        const mediaElements = getMediaElements(document);
-        const hasPlayingMedia = mediaElements.some(function(media) {
-          return !media.paused && !media.ended && media.currentSrc !== '';
-        });
-        try {
-          MediaStateChannel.postMessage(JSON.stringify({
-            type: 'playback',
-            hasPlayingMedia: hasPlayingMedia
-          }));
-        } catch (_) {}
-      };
-
-      const attachMedia = function(media) {
-        if (!media || media.__browserMediaBridgeAttached) return;
-        media.__browserMediaBridgeAttached = true;
-        applyMutePreference(media);
-        ['play', 'playing', 'pause', 'ended', 'emptied', 'loadstart', 'loadedmetadata', 'volumechange'].forEach(function(eventName) {
-          media.addEventListener(eventName, function() {
-            applyMutePreference(media);
-            reportPlaybackState();
-          });
-        });
-      };
-
-      const attachAllMedia = function(root) {
-        getMediaElements(root).forEach(attachMedia);
-      };
-
-      if (!window.__browserMediaBridgeObserver) {
-        window.__browserMediaBridgeObserver = new MutationObserver(function(mutations) {
-          mutations.forEach(function(mutation) {
-            mutation.addedNodes.forEach(function(node) {
-              attachAllMedia(node);
-            });
-            if (mutation.type === 'attributes') {
-              attachAllMedia(mutation.target);
-              applyMutePreferenceToAll(mutation.target);
-            }
-          });
-          reportPlaybackState();
-        });
-        window.__browserMediaBridgeObserver.observe(document.documentElement || document, {
-          attributes: true,
-          attributeFilter: ['src'],
-          childList: true,
-          subtree: true
-        });
-      }
-
-      attachAllMedia(document);
-      applyMutePreferenceToAll(document);
-      if (window.__browserMutedPreference === true && !window.__browserMuteEnforcerInterval) {
-        window.__browserMuteEnforcerInterval = setInterval(function() {
-          applyMutePreferenceToAll(document);
-          reportPlaybackState();
-        }, 250);
-      }
-      reportPlaybackState();
-      return true;
-    })();
-  ''';
-}
-
-class FaviconUrlPolicy {
-  static String normalizeJsResult(dynamic result) {
-    if (result == null) return '';
-    if (result is String) return result.trim();
-    return result.toString().trim();
-  }
-
-  static String unescapeWrappedJson(String raw) {
-    var text = raw.trim();
-    if (text.length >= 2 &&
-        ((text.startsWith('"') && text.endsWith('"')) ||
-            (text.startsWith("'") && text.endsWith("'")))) {
-      text = text.substring(1, text.length - 1);
-    }
-    return text
-        .replaceAll(r'\"', '"')
-        .replaceAll(r"\'", "'")
-        .replaceAll(r'\\', '\\');
-  }
-
-  static String? resolveFaviconFromJsResult(dynamic result) {
-    final raw = normalizeJsResult(result);
-    if (raw.isEmpty) return null;
-    var normalized = raw;
-    final unescaped = unescapeWrappedJson(raw).trim();
-    if (unescaped.isNotEmpty) {
-      normalized = unescaped;
-    }
-    normalized = normalized.replaceAll(r'\/', '/').trim();
-    final lower = normalized.toLowerCase();
-    if (lower == 'null' || lower == 'undefined' || normalized.isEmpty) {
-      return null;
-    }
-    return normalized;
-  }
-
-  static bool isLikelyRenderableFaviconUrl(String url) {
-    final normalized = url.trim();
-    final normalizedLower = normalized.toLowerCase();
-    if (normalizedLower.isEmpty) return false;
-    if (normalizedLower.contains('google.com/s2/favicons')) return true;
-    if (normalizedLower.startsWith('data:')) return false;
-    return normalizedLower.endsWith('.ico') ||
-        normalizedLower.endsWith('.png') ||
-        normalizedLower.endsWith('.jpg') ||
-        normalizedLower.endsWith('.jpeg') ||
-        normalizedLower.endsWith('.gif') ||
-        normalizedLower.endsWith('.webp');
-  }
-
-  static bool isSafeFaviconUrl(String url) {
-    final uri = Uri.tryParse(url.trim());
-    if (uri == null || uri.host.isEmpty) return false;
-    final scheme = uri.scheme.toLowerCase();
-    if (scheme != 'http' && scheme != 'https') return false;
-    return !_isBlockedFaviconHost(uri.host);
-  }
-
-  static Future<bool> isSafeFaviconUrlWithDns(String url) async {
-    final uri = Uri.tryParse(url.trim());
-    if (uri == null || uri.host.isEmpty) return false;
-    final scheme = uri.scheme.toLowerCase();
-    if (scheme != 'http' && scheme != 'https') return false;
-    if (_isBlockedFaviconHost(uri.host)) return false;
-    try {
-      final addresses = await InternetAddress.lookup(uri.host);
-      if (addresses.isEmpty) return false;
-      for (final address in addresses) {
-        if (_isBlockedAddress(address)) {
-          return false;
-        }
-      }
-      return true;
-    } catch (_) {
-      // Fail closed on DNS errors for SSRF-sensitive URL validation.
-      return false;
-    }
-  }
-
-  static bool isSafeAndRenderableFaviconUrl(String url) {
-    final normalized = url.trim().toLowerCase();
-    if (normalized.isEmpty) return false;
-    return isSafeFaviconUrl(normalized) &&
-        isLikelyRenderableFaviconUrl(normalized);
-  }
-
-  static bool _isBlockedFaviconHost(String host) {
-    final normalizedHost = host.trim().toLowerCase();
-    if (normalizedHost.isEmpty) return true;
-    if (normalizedHost == 'localhost' ||
-        normalizedHost.endsWith('.localhost') ||
-        normalizedHost.endsWith('.local')) {
-      return true;
-    }
-    final ip = InternetAddress.tryParse(normalizedHost);
-    if (ip == null) return false;
-    return _isBlockedAddress(ip);
-  }
-
-  static bool _isBlockedAddress(InternetAddress ip) {
-    if (ip.type == InternetAddressType.IPv4) {
-      final b = ip.rawAddress;
-      if (b.length != 4) return true;
-      if (b[0] == 10) return true; // 10.0.0.0/8
-      if (b[0] == 127) return true; // loopback
-      if (b[0] == 0) return true; // invalid/unspecified
-      if (b[0] == 169 && b[1] == 254) {
-        return true; // link-local + metadata range
-      }
-      if (b[0] == 172 && b[1] >= 16 && b[1] <= 31) return true; // 172.16.0.0/12
-      if (b[0] == 192 && b[1] == 168) return true; // 192.168.0.0/16
-      if (b[0] == 100 && b[1] >= 64 && b[1] <= 127) return true; // CGNAT
-      if (b[0] >= 224) return true; // multicast/reserved
-      return false;
-    }
-    if (ip.type == InternetAddressType.IPv6) {
-      final b = ip.rawAddress;
-      if (b.length != 16) return true;
-      final isUnspecified = b.every((v) => v == 0);
-      if (isUnspecified) return true;
-      final isLoopback = b.sublist(0, 15).every((v) => v == 0) && b[15] == 1;
-      if (isLoopback) return true; // ::1
-      final isIpv4Mapped = b.sublist(0, 10).every((v) => v == 0) &&
-          b[10] == 0xFF &&
-          b[11] == 0xFF;
-      if (isIpv4Mapped) return true; // ::ffff:x.x.x.x
-      if ((b[0] & 0xFE) == 0xFC) return true; // fc00::/7 unique local
-      if (b[0] == 0xFE && (b[1] & 0xC0) == 0x80) {
-        return true; // fe80::/10 link-local
-      }
-      if (b[0] == 0xFF) return true; // multicast
-      return false;
-    }
-    return true;
-  }
-}
 
 class _PageFontChoice {
   const _PageFontChoice(this.label, this.cssFamily);
@@ -518,1504 +141,6 @@ class _FontPickerResult {
   final bool clearCurrentSiteRule;
 }
 
-class SettingsDialog extends HookWidget {
-  const SettingsDialog({
-    super.key,
-    this.onSettingsChanged,
-    this.onClearCaches,
-    this.onClearAllData,
-    this.onThemePreviewChanged,
-    this.currentTheme,
-    required this.aiAvailable,
-    this.aiSearchSuggestionsEnabled = false,
-    this.advancedCacheEnabled = false,
-    this.ambientToolbarEnabled = false,
-    this.autoHideAddressBarEnabled = false,
-    this.onOpenHelp,
-  });
-
-  final void Function()? onSettingsChanged;
-  final void Function()? onClearCaches;
-  final void Function(bool factoryReset)? onClearAllData;
-  final void Function(AppThemeMode mode)? onThemePreviewChanged;
-  final AppThemeMode? currentTheme;
-  final bool aiAvailable;
-  final bool aiSearchSuggestionsEnabled;
-  final bool advancedCacheEnabled;
-  final bool ambientToolbarEnabled;
-  final bool autoHideAddressBarEnabled;
-  final void Function()? onOpenHelp;
-
-  String _themeLabel(AppThemeMode mode) {
-    switch (mode) {
-      case AppThemeMode.system:
-        return 'system';
-      case AppThemeMode.light:
-        return 'light';
-      case AppThemeMode.dark:
-        return 'dark';
-      case AppThemeMode.adjust:
-        return 'adjust (page)';
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    const compactDensity = VisualDensity(horizontal: -2, vertical: -2);
-
-    final refreshIconController = useAnimationController(
-      duration: const Duration(milliseconds: 1000),
-    );
-
-    final homepage = useState<String?>(null);
-    final hideAppBar = useState(false);
-    final useModernUserAgent = useState(false);
-    final privateBrowsing = useState(false);
-    final originalPrivateBrowsing = useRef<bool?>(null);
-    final adBlocking = useState(false);
-    final strictMode = useState(false);
-    final passwordManagerEnabled = useState(false);
-    final reorderableTabs = useState(false);
-    final tabFaviconBadgeEnabled = useState(false);
-    final autoHideAddressBarEnabled = useState(this.autoHideAddressBarEnabled);
-    final aiSearchSuggestionsEnabled =
-        useState(this.aiSearchSuggestionsEnabled);
-    final advancedCacheEnabled = useState(this.advancedCacheEnabled);
-    final ambientToolbarEnabled = useState(this.ambientToolbarEnabled);
-    final urlAutocompleteSuggestionRemovalEnabled = useState(false);
-    final selectedTheme =
-        useState<AppThemeMode>(currentTheme ?? AppThemeMode.system);
-    final homepageController = useTextEditingController();
-    final settingsScrollController = useScrollController();
-
-    final firebaseApiKey = useTextEditingController();
-    final firebaseAppId = useTextEditingController();
-    final firebaseSenderId = useTextEditingController();
-    final firebaseProjectId = useTextEditingController();
-    final firebaseStorageBucket = useTextEditingController();
-    final showFirebaseConfig = useState(false);
-    final loadedFirebaseConfig =
-        useRef<Map<String, String>>(<String, String>{});
-    final lastSettingsProfileId = useRef<String?>(null);
-
-    final updateService = useMemoized(() => UpdateService());
-    final isCheckingUpdate = useState(false);
-    final localUpdateInfo = useState<UpdateInfo?>(null);
-    final effectiveUpdateInfo = localUpdateInfo.value;
-    final downloadProgress = useState<double?>(null);
-
-    Future<void> handleUpdate(UpdateInfo info) async {
-      final sizeMB = (info.size / (1024 * 1024)).round();
-      final sizeText = sizeMB > 0 ? ' (~${sizeMB}MB)' : '';
-
-      final confirm = await showDialog<bool>(
-        context: context,
-        builder: (dialogContext) => AlertDialog(
-          alignment: Alignment.centerRight,
-          insetPadding: const EdgeInsets.fromLTRB(24, 24, 16, 24),
-          title: Text(
-            'Update to ${info.version}',
-            style: theme.textTheme.titleSmall?.copyWith(fontSize: 15),
-          ),
-          content: Text('New version available$sizeText. Install now?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
-              style: ButtonStyle(
-                overlayColor: WidgetStateProperty.all(Colors.transparent),
-              ),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(dialogContext, true),
-              style: ButtonStyle(
-                overlayColor: WidgetStateProperty.all(Colors.transparent),
-              ),
-              child: const Text('Update'),
-            ),
-          ],
-        ),
-      );
-
-      if (confirm == true) {
-        downloadProgress.value = 0.0;
-        final file = await updateService.downloadUpdate(
-          info.downloadUrl,
-          info.version,
-          (progress) => downloadProgress.value = progress,
-          info.checksum,
-        );
-        downloadProgress.value = null;
-
-        if (file != null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Download complete. Installing...')),
-          );
-
-          if (Platform.isMacOS) {
-            try {
-              final appName = 'Browser.app';
-              final appPath = '/Applications/$appName';
-
-              final mountResult = await Process.run(
-                  'hdiutil', ['attach', file.path, '-nobrowse']);
-              if (mountResult.exitCode != 0) {
-                throw Exception('Failed to mount DMG: ${mountResult.stderr}');
-              }
-
-              final mountOutput = mountResult.stdout.toString();
-              final volumeLine = mountOutput.split('\n').firstWhere(
-                    (line) => line.contains('/Volumes/'),
-                    orElse: () => '',
-                  );
-              final volumePathMatch =
-                  RegExp(r'(/Volumes/[^\r\n]*)').firstMatch(volumeLine);
-              final volumePath = volumePathMatch?.group(1)?.trim() ?? '';
-              if (volumePath.isEmpty) {
-                await Process.run('hdiutil', ['detach', mountOutput.trim()]);
-                throw Exception('Could not find mounted volume');
-              }
-              final sourceApp = '$volumePath/$appName';
-
-              // Check if source app exists
-              if (!await File(sourceApp).exists()) {
-                await Process.run('hdiutil', ['detach', volumePath]);
-                throw Exception('App not found in DMG');
-              }
-
-              // Backup current app if exists
-              final backupPath = '$appPath.backup';
-              if (await Directory(appPath).exists()) {
-                await Process.run('mv', [appPath, backupPath]);
-              }
-
-              final cpResult = await Process.run(
-                  'ditto', ['-rsrc', sourceApp, '/Applications/']);
-              if (cpResult.exitCode != 0) {
-                // Restore backup
-                if (await Directory(backupPath).exists()) {
-                  await Process.run('mv', [backupPath, appPath]);
-                }
-                await Process.run('hdiutil', ['detach', volumePath]);
-                throw Exception('Failed to copy app: ${cpResult.stderr}');
-              }
-
-              await Process.run('hdiutil', ['detach', volumePath]);
-
-              // Clean up backup
-              if (await Directory(backupPath).exists()) {
-                await Process.run('rm', ['-rf', backupPath]);
-              }
-
-              await Process.run('open', ['/Applications/$appName']);
-
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Update installed. Restarting...'),
-                  duration: Duration(seconds: 5),
-                ),
-              );
-
-              exit(0);
-            } catch (e) {
-              debugPrint('Installation failed: $e');
-              await Process.run('open', [file.path]);
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                        'Installation failed. Update downloaded to ${file.path}. Drag to Applications to install manually.'),
-                    duration: const Duration(seconds: 15),
-                  ),
-                );
-              }
-            }
-          } else if (Platform.isWindows) {
-            try {
-              await Process.run(file.path, []);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text(
-                      'Update installer launched. Follow the prompts to complete installation.'),
-                  duration: Duration(seconds: 10),
-                ),
-              );
-            } catch (e) {
-              debugPrint('Failed to launch installer: $e');
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                    content: Text(
-                        'Update downloaded to: ${file.path}. Run the installer manually.')),
-              );
-            }
-          } else if (Platform.isLinux) {
-            try {
-              await Process.run('xdg-open', [file.path]);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text(
-                      'Update package opened. Use your package manager to install it.'),
-                  duration: Duration(seconds: 10),
-                ),
-              );
-            } catch (e) {
-              debugPrint('Failed to open package: $e');
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                    content: Text(
-                        'Update downloaded to: ${file.path}. Install manually with your package manager.')),
-              );
-            }
-          } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                  content: Text(
-                      'Update downloaded to: ${file.path}. Please install manually.')),
-            );
-          }
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Failed to download update')),
-          );
-        }
-      }
-    }
-
-    Future<void> checkUpdate() async {
-      refreshIconController.forward(from: 0.0);
-      isCheckingUpdate.value = true;
-      try {
-        final info = await updateService.checkForUpdates();
-        localUpdateInfo.value = info;
-        if (info != null) {
-          await handleUpdate(info);
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Browser is up to date')),
-          );
-        }
-      } catch (e) {
-        debugPrint('Update check failed: $e');
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Update check failed. Please try again later.')),
-        );
-      } finally {
-        isCheckingUpdate.value = false;
-      }
-    }
-
-    useEffect(() {
-      var cancelled = false;
-      Future<void> loadPreferences() async {
-        final prefs = await SharedPreferences.getInstance();
-        if (cancelled) return;
-        String scopedKey(String key) => profileManager.getScopedStorageKey(key);
-        bool readBool(String key, {required bool defaultValue}) =>
-            prefs.getBool(scopedKey(key)) ?? defaultValue;
-
-        String? readString(String key) => prefs.getString(scopedKey(key));
-
-        final storedHomepage = readString(homepageKey);
-        final resolvedHomepage = (storedHomepage?.isNotEmpty ?? false)
-            ? storedHomepage!
-            : defaultHomepageUrl;
-        hideAppBar.value = readBool(hideAppBarKey, defaultValue: false);
-        useModernUserAgent.value =
-            readBool(useModernUserAgentKey, defaultValue: false);
-        privateBrowsing.value =
-            readBool(privateBrowsingKey, defaultValue: false);
-        originalPrivateBrowsing.value = privateBrowsing.value;
-        adBlocking.value = readBool(adBlockingKey, defaultValue: false);
-        strictMode.value = readBool(strictModeKey, defaultValue: false);
-        passwordManagerEnabled.value =
-            readBool(passwordManagerEnabledKey, defaultValue: false);
-        reorderableTabs.value =
-            readBool(reorderableTabsKey, defaultValue: false);
-        tabFaviconBadgeEnabled.value =
-            readBool(tabFaviconBadgeEnabledKey, defaultValue: false);
-        aiSearchSuggestionsEnabled.value =
-            readBool(aiSearchSuggestionsEnabledKey, defaultValue: false);
-        advancedCacheEnabled.value =
-            readBool(advancedCacheEnabledKey, defaultValue: false);
-        ambientToolbarEnabled.value =
-            readBool(ambientToolbarEnabledKey, defaultValue: false);
-        urlAutocompleteSuggestionRemovalEnabled.value = readBool(
-          urlAutocompleteSuggestionRemovalEnabledKey,
-          defaultValue: false,
-        );
-        autoHideAddressBarEnabled.value =
-            readBool(autoHideAddressBarKey, defaultValue: false);
-        final themeString = readString(themeModeKey);
-        selectedTheme.value = themeString == null
-            ? (currentTheme ?? AppThemeMode.system)
-            : AppThemeMode.values.firstWhere(
-                (m) => m.name == themeString,
-                orElse: () => currentTheme ?? AppThemeMode.system,
-              );
-
-        final firebaseConfig = await FirebaseConfigStore.loadSettingsConfig();
-        if (cancelled) return;
-        firebaseApiKey.text = firebaseConfig[firebaseApiKeyPref] ?? '';
-        firebaseAppId.text = firebaseConfig[firebaseAppIdPref] ?? '';
-        firebaseSenderId.text = firebaseConfig[firebaseSenderIdPref] ?? '';
-        firebaseProjectId.text = firebaseConfig[firebaseProjectIdPref] ?? '';
-        firebaseStorageBucket.text =
-            firebaseConfig[firebaseStorageBucketPref] ?? '';
-        loadedFirebaseConfig.value = <String, String>{
-          firebaseApiKeyPref: firebaseApiKey.text,
-          firebaseAppIdPref: firebaseAppId.text,
-          firebaseSenderIdPref: firebaseSenderId.text,
-          firebaseProjectIdPref: firebaseProjectId.text,
-          firebaseStorageBucketPref: firebaseStorageBucket.text,
-        };
-
-        // Mark dialog ready only after all settings are loaded.
-        homepage.value = resolvedHomepage;
-        homepageController.text =
-            resolvedHomepage == defaultHomepageUrl ? '' : resolvedHomepage;
-      }
-
-      void handleProfileChange() {
-        final current = profileManager.activeProfileId;
-        if (current == lastSettingsProfileId.value) return;
-        lastSettingsProfileId.value = current;
-        unawaited(loadPreferences());
-      }
-
-      lastSettingsProfileId.value = profileManager.activeProfileId;
-      profileManager.addListener(handleProfileChange);
-      unawaited(loadPreferences());
-      return () {
-        cancelled = true;
-        profileManager.removeListener(handleProfileChange);
-      };
-    }, const []);
-
-    if (homepage.value == null) {
-      return const AlertDialog(
-        title: Text('Settings'),
-        content: CircularProgressIndicator(),
-      );
-    }
-
-    final dialogMaxHeight = math.min(
-      MediaQuery.of(context).size.height * 0.72,
-      560.0,
-    );
-
-    return AlertDialog(
-      alignment: Alignment.centerRight,
-      insetPadding: const EdgeInsets.fromLTRB(24, 24, 16, 24),
-      title: Text(
-        'Settings',
-        style: theme.textTheme.titleSmall?.copyWith(fontSize: 15),
-      ),
-      content: ConstrainedBox(
-        constraints: BoxConstraints(maxHeight: dialogMaxHeight),
-        child: Scrollbar(
-          controller: settingsScrollController,
-          thumbVisibility: false,
-          child: SingleChildScrollView(
-            controller: settingsScrollController,
-            child: Theme(
-              data: theme.copyWith(
-                splashFactory: NoSplash.splashFactory,
-                highlightColor: Colors.transparent,
-                hoverColor: Colors.transparent,
-                inputDecorationTheme: theme.inputDecorationTheme.copyWith(
-                  hoverColor: Colors.transparent,
-                ),
-                switchTheme: SwitchThemeData(
-                  overlayColor: WidgetStateProperty.all(Colors.transparent),
-                  thumbColor: WidgetStateProperty.resolveWith((states) {
-                    if (states.contains(WidgetState.selected)) {
-                      return theme.colorScheme.onPrimary;
-                    }
-                    return theme.colorScheme.outline;
-                  }),
-                ),
-                listTileTheme: ListTileThemeData(
-                  dense: true,
-                  visualDensity: compactDensity,
-                  titleTextStyle: theme.textTheme.bodyMedium?.copyWith(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w400,
-                    color: theme.colorScheme.onSurface,
-                  ),
-                  subtitleTextStyle: theme.textTheme.bodySmall?.copyWith(
-                    fontSize: 10,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: homepageController,
-                    style: theme.textTheme.bodyMedium?.copyWith(fontSize: 13),
-                    decoration: InputDecoration(
-                      labelText: 'Homepage',
-                      isDense: true,
-                      filled: false,
-                      enabledBorder: UnderlineInputBorder(
-                        borderSide: BorderSide(
-                          color: theme.colorScheme.onSurface
-                              .withValues(alpha: 0.18),
-                        ),
-                      ),
-                      focusedBorder: UnderlineInputBorder(
-                        borderSide: BorderSide(
-                          color: theme.colorScheme.primary,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.surfaceContainerHigh,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: theme.colorScheme.onSurface
-                              .withValues(alpha: 0.12),
-                          width: 0.5,
-                        ),
-                      ),
-                      child: ListTile(
-                        dense: true,
-                        visualDensity: compactDensity,
-                        title: Text(
-                          'Profile',
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        subtitle: ListenableBuilder(
-                          listenable: profileManager,
-                          builder: (context, _) => Text(
-                            profileManager.activeProfile?.name ?? 'None',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              fontSize: 11,
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ),
-                        trailing: MouseRegion(
-                          cursor: SystemMouseCursors.click,
-                          child: IconButton(
-                            key: const Key('settings.manage_profiles'),
-                            icon: const Icon(Icons.settings, size: 18),
-                            onPressed: () => _showProfileManagerDialog(
-                              context,
-                              ambientToolbarEnabled.value,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  MouseRegion(
-                    cursor: SystemMouseCursors.click,
-                    child: SwitchListTile(
-                      title: const Text('Hide toolbar'),
-                      value: hideAppBar.value,
-                      onChanged: (value) => hideAppBar.value = value,
-                      hoverColor: Colors.transparent,
-                    ),
-                  ),
-                  MouseRegion(
-                    cursor: SystemMouseCursors.click,
-                    child: SwitchListTile(
-                      title: const Text('Hide URL'),
-                      value: autoHideAddressBarEnabled.value,
-                      onChanged: (value) =>
-                          autoHideAddressBarEnabled.value = value,
-                      hoverColor: Colors.transparent,
-                    ),
-                  ),
-                  MouseRegion(
-                    cursor: SystemMouseCursors.click,
-                    child: SwitchListTile(
-                      title: const Text('Legacy UA'),
-                      value: useModernUserAgent.value,
-                      onChanged: (value) => useModernUserAgent.value = value,
-                      hoverColor: Colors.transparent,
-                    ),
-                  ),
-                  MouseRegion(
-                    cursor: SystemMouseCursors.click,
-                    child: SwitchListTile(
-                      title: const Text('Private'),
-                      value: privateBrowsing.value,
-                      onChanged: (value) => privateBrowsing.value = value,
-                      hoverColor: Colors.transparent,
-                    ),
-                  ),
-                  MouseRegion(
-                    cursor: SystemMouseCursors.click,
-                    child: SwitchListTile(
-                      title: const Text('Block ads'),
-                      value: adBlocking.value,
-                      onChanged: (value) => adBlocking.value = value,
-                      hoverColor: Colors.transparent,
-                    ),
-                  ),
-                  MouseRegion(
-                    cursor: SystemMouseCursors.click,
-                    child: SwitchListTile(
-                      title: const Text('Strict'),
-                      value: strictMode.value,
-                      onChanged: (value) => strictMode.value = value,
-                      hoverColor: Colors.transparent,
-                    ),
-                  ),
-                  MouseRegion(
-                    cursor: SystemMouseCursors.click,
-                    child: SwitchListTile(
-                      title: const Text('Passwords'),
-                      value: passwordManagerEnabled.value,
-                      onChanged: (value) =>
-                          passwordManagerEnabled.value = value,
-                      hoverColor: Colors.transparent,
-                    ),
-                  ),
-                  if (passwordManagerEnabled.value)
-                    MouseRegion(
-                      cursor: SystemMouseCursors.click,
-                      child: ListTile(
-                        leading: const Icon(Icons.lock),
-                        title: const Text('Manage Passwords'),
-                        trailing: const Icon(Icons.chevron_right),
-                        hoverColor: Colors.transparent,
-                        onTap: () {
-                          Navigator.of(context).pop();
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (context) => const PasswordVaultScreen(),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  MouseRegion(
-                    cursor: SystemMouseCursors.click,
-                    child: SwitchListTile(
-                      title: const Text('Reorder tabs'),
-                      value: reorderableTabs.value,
-                      onChanged: (value) => reorderableTabs.value = value,
-                      hoverColor: Colors.transparent,
-                    ),
-                  ),
-                  MouseRegion(
-                    cursor: SystemMouseCursors.click,
-                    child: SwitchListTile(
-                      title: const Text('Favicon badge'),
-                      value: tabFaviconBadgeEnabled.value,
-                      onChanged: (value) =>
-                          tabFaviconBadgeEnabled.value = value,
-                      hoverColor: Colors.transparent,
-                    ),
-                  ),
-                  MouseRegion(
-                    cursor: SystemMouseCursors.click,
-                    child: SwitchListTile(
-                      title: const Text('AI suggestions'),
-                      value: aiSearchSuggestionsEnabled.value,
-                      onChanged: (value) =>
-                          aiSearchSuggestionsEnabled.value = value,
-                      hoverColor: Colors.transparent,
-                    ),
-                  ),
-                  MouseRegion(
-                    cursor: SystemMouseCursors.click,
-                    child: SwitchListTile(
-                      title: const Text('Erase suggestions'),
-                      value: urlAutocompleteSuggestionRemovalEnabled.value,
-                      onChanged: (value) =>
-                          urlAutocompleteSuggestionRemovalEnabled.value = value,
-                      hoverColor: Colors.transparent,
-                    ),
-                  ),
-                  MouseRegion(
-                    cursor: SystemMouseCursors.click,
-                    child: SwitchListTile(
-                      title: const Text('Advanced cache'),
-                      value: advancedCacheEnabled.value,
-                      onChanged: (value) => advancedCacheEnabled.value = value,
-                      hoverColor: Colors.transparent,
-                    ),
-                  ),
-                  MouseRegion(
-                    cursor: SystemMouseCursors.click,
-                    child: SwitchListTile(
-                      title: const Text('Ambient'),
-                      value: ambientToolbarEnabled.value,
-                      onChanged: (value) => ambientToolbarEnabled.value = value,
-                      hoverColor: Colors.transparent,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: AppThemeMode.values.map((mode) {
-                      final isSelected = selectedTheme.value == mode;
-                      return Theme(
-                        data: theme.copyWith(
-                          splashFactory: NoSplash.splashFactory,
-                          highlightColor: Colors.transparent,
-                          hoverColor: Colors.transparent,
-                        ),
-                        child: ChoiceChip(
-                          label: Text(
-                            _themeLabel(mode),
-                            style: theme.textTheme.bodySmall
-                                ?.copyWith(fontSize: 11),
-                          ),
-                          selected: isSelected,
-                          showCheckmark: false,
-                          visualDensity: compactDensity,
-                          materialTapTargetSize:
-                              MaterialTapTargetSize.shrinkWrap,
-                          onSelected: (_) {
-                            selectedTheme.value = mode;
-                            onThemePreviewChanged?.call(mode);
-                          },
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: 10),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
-                    ),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color:
-                            theme.colorScheme.onSurface.withValues(alpha: 0.12),
-                        width: 0.5,
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Text(
-                              'AI Chat',
-                              style: theme.textTheme.titleSmall
-                                  ?.copyWith(fontSize: 12),
-                            ),
-                            const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: aiAvailable
-                                    ? theme.colorScheme.primaryContainer
-                                    : theme.colorScheme.errorContainer,
-                                borderRadius: BorderRadius.circular(999),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    aiAvailable
-                                        ? Icons.verified_rounded
-                                        : Icons.warning_amber_rounded,
-                                    size: 12,
-                                    color: aiAvailable
-                                        ? theme.colorScheme.onPrimaryContainer
-                                        : theme.colorScheme.onErrorContainer,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    aiAvailable ? 'Ready' : 'Setup',
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      fontSize: 9,
-                                      fontWeight: FontWeight.w600,
-                                      color: aiAvailable
-                                          ? theme.colorScheme.onPrimaryContainer
-                                          : theme.colorScheme.onErrorContainer,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const Spacer(),
-                            MouseRegion(
-                              cursor: SystemMouseCursors.click,
-                              child: IconButton(
-                                key: const Key(
-                                    'settings.firebase_config_toggle'),
-                                visualDensity: compactDensity,
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(
-                                  minWidth: 32,
-                                  minHeight: 32,
-                                ),
-                                icon: Icon(
-                                  showFirebaseConfig.value
-                                      ? Icons.expand_less
-                                      : Icons.expand_more,
-                                  size: 18,
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
-                                onPressed: () => showFirebaseConfig.value =
-                                    !showFirebaseConfig.value,
-                              ),
-                            ),
-                          ],
-                        ),
-                        if (showFirebaseConfig.value) ...[
-                          const SizedBox(height: 8),
-                          TextField(
-                            controller: firebaseApiKey,
-                            obscureText: true,
-                            style: theme.textTheme.bodyMedium
-                                ?.copyWith(fontSize: 9),
-                            decoration: InputDecoration(
-                              labelText: 'API Key',
-                              labelStyle: TextStyle(fontSize: 8),
-                              isDense: true,
-                              contentPadding: EdgeInsets.symmetric(
-                                  horizontal: 6, vertical: 6),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(4),
-                                borderSide: BorderSide(
-                                  color: theme.colorScheme.outline,
-                                ),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(4),
-                                borderSide: BorderSide(
-                                  color: theme.colorScheme.primary,
-                                ),
-                              ),
-                              filled: false,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          TextField(
-                            controller: firebaseAppId,
-                            obscureText: true,
-                            style: theme.textTheme.bodyMedium
-                                ?.copyWith(fontSize: 9),
-                            decoration: InputDecoration(
-                              labelText: 'App ID',
-                              labelStyle: TextStyle(fontSize: 8),
-                              isDense: true,
-                              contentPadding: EdgeInsets.symmetric(
-                                  horizontal: 6, vertical: 6),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(4),
-                                borderSide: BorderSide(
-                                  color: theme.colorScheme.outline,
-                                ),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(4),
-                                borderSide: BorderSide(
-                                  color: theme.colorScheme.primary,
-                                ),
-                              ),
-                              filled: false,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          TextField(
-                            controller: firebaseSenderId,
-                            obscureText: true,
-                            style: theme.textTheme.bodyMedium
-                                ?.copyWith(fontSize: 9),
-                            decoration: InputDecoration(
-                              labelText: 'Sender ID',
-                              labelStyle: TextStyle(fontSize: 8),
-                              isDense: true,
-                              contentPadding: EdgeInsets.symmetric(
-                                  horizontal: 6, vertical: 6),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(4),
-                                borderSide: BorderSide(
-                                  color: theme.colorScheme.outline,
-                                ),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(4),
-                                borderSide: BorderSide(
-                                  color: theme.colorScheme.primary,
-                                ),
-                              ),
-                              filled: false,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          TextField(
-                            controller: firebaseProjectId,
-                            obscureText: true,
-                            style: theme.textTheme.bodyMedium
-                                ?.copyWith(fontSize: 9),
-                            decoration: InputDecoration(
-                              labelText: 'Project ID',
-                              labelStyle: TextStyle(fontSize: 8),
-                              isDense: true,
-                              contentPadding: EdgeInsets.symmetric(
-                                  horizontal: 6, vertical: 6),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(4),
-                                borderSide: BorderSide(
-                                  color: theme.colorScheme.outline,
-                                ),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(4),
-                                borderSide: BorderSide(
-                                  color: theme.colorScheme.primary,
-                                ),
-                              ),
-                              filled: false,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          TextField(
-                            controller: firebaseStorageBucket,
-                            obscureText: true,
-                            style: theme.textTheme.bodyMedium
-                                ?.copyWith(fontSize: 9),
-                            decoration: InputDecoration(
-                              labelText: 'Storage',
-                              labelStyle: TextStyle(fontSize: 8),
-                              isDense: true,
-                              contentPadding: EdgeInsets.symmetric(
-                                  horizontal: 6, vertical: 6),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(4),
-                                borderSide: BorderSide(
-                                  color: theme.colorScheme.outline,
-                                ),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(4),
-                                borderSide: BorderSide(
-                                  color: theme.colorScheme.primary,
-                                ),
-                              ),
-                              filled: false,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  ListTile(
-                    title: Text(
-                      effectiveUpdateInfo != null
-                          ? 'v${effectiveUpdateInfo.version}'
-                          : 'Updates',
-                      style: theme.textTheme.bodyMedium,
-                    ),
-                    trailing: effectiveUpdateInfo != null
-                        ? Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: theme.colorScheme.primaryContainer,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              'Update',
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: theme.colorScheme.onPrimaryContainer,
-                              ),
-                            ),
-                          )
-                        : RotationTransition(
-                            turns: refreshIconController,
-                            child: IconButton(
-                              icon: const Icon(Icons.refresh),
-                              onPressed:
-                                  isCheckingUpdate.value ? null : checkUpdate,
-                            ),
-                          ),
-                  ),
-                  const SizedBox(height: 10),
-                  MouseRegion(
-                    cursor: SystemMouseCursors.click,
-                    child: GestureDetector(
-                      onTap: () {
-                        Navigator.of(context).pop(false);
-                        onOpenHelp?.call();
-                      },
-                      child: Column(
-                        children: [
-                          Image.asset(
-                            'assets/icons/menu_bar_icon.png',
-                            width: 24,
-                            height: 24,
-                            errorBuilder: (context, error, stackTrace) =>
-                                const Icon(Icons.menu, size: 24),
-                          ),
-                          const SizedBox(height: 4),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(false),
-          child: const Text('Cancel'),
-        ),
-        TextButton(
-          onPressed: () async {
-            final homepageText = homepageController.text.trim();
-            String homepageToSave;
-            if (homepageText.isEmpty) {
-              homepageToSave = defaultHomepageUrl;
-            } else {
-              final processed = UrlUtils.processUrl(homepageText);
-              if (!UrlUtils.isValidUrl(processed)) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Invalid homepage URL')),
-                );
-                return;
-              }
-              homepageToSave = processed;
-            }
-            final prefs = await SharedPreferences.getInstance();
-            String scopedKey(String key) =>
-                profileManager.getScopedStorageKey(key);
-
-            // Check if Firebase config changed from loaded values.
-            final oldApiKey =
-                loadedFirebaseConfig.value[firebaseApiKeyPref] ?? '';
-            final oldAppId =
-                loadedFirebaseConfig.value[firebaseAppIdPref] ?? '';
-            final oldSenderId =
-                loadedFirebaseConfig.value[firebaseSenderIdPref] ?? '';
-            final oldProjectId =
-                loadedFirebaseConfig.value[firebaseProjectIdPref] ?? '';
-            final oldStorageBucket =
-                loadedFirebaseConfig.value[firebaseStorageBucketPref] ?? '';
-
-            final newApiKey = firebaseApiKey.text.trim();
-            final newAppId = firebaseAppId.text.trim();
-            final newSenderId = firebaseSenderId.text.trim();
-            final newProjectId = firebaseProjectId.text.trim();
-            final newStorageBucket = firebaseStorageBucket.text.trim();
-
-            final firebaseChanged = oldApiKey != newApiKey ||
-                oldAppId != newAppId ||
-                oldSenderId != newSenderId ||
-                oldProjectId != newProjectId ||
-                oldStorageBucket != newStorageBucket;
-
-            await prefs.setString(scopedKey(homepageKey), homepageToSave);
-            await prefs.setBool(scopedKey(hideAppBarKey), hideAppBar.value);
-            await prefs.setBool(
-                scopedKey(useModernUserAgentKey), useModernUserAgent.value);
-            await prefs.setBool(
-                scopedKey(privateBrowsingKey), privateBrowsing.value);
-            await prefs.setBool(scopedKey(adBlockingKey), adBlocking.value);
-            await prefs.setBool(scopedKey(strictModeKey), strictMode.value);
-            await prefs.setBool(scopedKey(passwordManagerEnabledKey),
-                passwordManagerEnabled.value);
-            await prefs.setBool(
-                scopedKey(reorderableTabsKey), reorderableTabs.value);
-            await prefs.setBool(
-              scopedKey(tabFaviconBadgeEnabledKey),
-              tabFaviconBadgeEnabled.value,
-            );
-            await prefs.setBool(scopedKey(aiSearchSuggestionsEnabledKey),
-                aiSearchSuggestionsEnabled.value);
-            await prefs.setBool(
-                scopedKey(advancedCacheEnabledKey), advancedCacheEnabled.value);
-            await prefs.setBool(scopedKey(ambientToolbarEnabledKey),
-                ambientToolbarEnabled.value);
-            await prefs.setBool(
-              scopedKey(urlAutocompleteSuggestionRemovalEnabledKey),
-              urlAutocompleteSuggestionRemovalEnabled.value,
-            );
-            await prefs.setBool(
-              scopedKey(autoHideAddressBarKey),
-              autoHideAddressBarEnabled.value,
-            );
-            await prefs.setString(
-                scopedKey(themeModeKey), selectedTheme.value.name);
-
-            try {
-              await FirebaseConfigStore.saveSettingsConfig(
-                apiKey: newApiKey,
-                appId: newAppId,
-                senderId: newSenderId,
-                projectId: newProjectId,
-                storageBucket: newStorageBucket,
-              );
-            } catch (_) {
-              // Keep settings save flow resilient even when secure storage fails.
-            }
-
-            onSettingsChanged?.call();
-            if (privateBrowsing.value &&
-                originalPrivateBrowsing.value == false) {
-              onClearCaches?.call();
-            }
-
-            final message = firebaseChanged
-                ? 'Settings saved — restart required for Firebase changes'
-                : 'Settings saved';
-
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(message)),
-            );
-            Navigator.of(context).pop(true);
-          },
-          child: const Text('Save'),
-        ),
-        if (onClearAllData != null)
-          TextButton(
-            onPressed: () async {
-              final theme = Theme.of(context);
-              final confirm = await showDialog<bool?>(
-                context: context,
-                builder: (dialogContext) {
-                  bool factoryReset = false;
-                  return Theme(
-                    data: theme.copyWith(
-                      splashFactory: NoSplash.splashFactory,
-                      hoverColor: Colors.transparent,
-                    ),
-                    child: StatefulBuilder(
-                      builder: (dialogContext, setState) => AlertDialog(
-                        title: Text(
-                          'Clear All Data',
-                          style: theme.textTheme.titleSmall
-                              ?.copyWith(fontSize: 15),
-                        ),
-                        content: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'This will clear all cached data, saved passwords, and settings.',
-                              style: theme.textTheme.bodySmall
-                                  ?.copyWith(fontSize: 12),
-                            ),
-                            const SizedBox(height: 8),
-                            Row(
-                              children: [
-                                MouseRegion(
-                                  cursor: SystemMouseCursors.click,
-                                  child: Checkbox(
-                                    value: factoryReset,
-                                    onChanged: (v) {
-                                      setState(() => factoryReset = v ?? false);
-                                    },
-                                    overlayColor: WidgetStateProperty.all(
-                                        Colors.transparent),
-                                    materialTapTargetSize:
-                                        MaterialTapTargetSize.shrinkWrap,
-                                  ),
-                                ),
-                                Expanded(
-                                  child: Text(
-                                    'Factory reset (erase all profiles)',
-                                    style: theme.textTheme.bodySmall
-                                        ?.copyWith(fontSize: 12),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            const SizedBox.shrink(),
-                          ],
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: () =>
-                                Navigator.of(dialogContext).pop(null),
-                            style: ButtonStyle(
-                              overlayColor:
-                                  WidgetStateProperty.all(Colors.transparent),
-                            ),
-                            child: const Text('Cancel'),
-                          ),
-                          FilledButton(
-                            onPressed: () =>
-                                Navigator.of(dialogContext).pop(factoryReset),
-                            style: ButtonStyle(
-                              overlayColor:
-                                  WidgetStateProperty.all(Colors.transparent),
-                            ),
-                            child: const Text('Clear'),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              );
-              if (confirm != null) {
-                onClearAllData?.call(confirm);
-              }
-            },
-            child: Text(
-              'Clear',
-              style: TextStyle(color: theme.colorScheme.error),
-            ),
-          ),
-      ],
-    );
-  }
-
-  void _showProfileManagerDialog(BuildContext dialogContext, bool ambient) {
-    showDialog<void>(
-      context: dialogContext,
-      builder: (context) => _ProfileManagerDialog(
-        onProfileChanged: () {},
-        ambientEnabled: ambient,
-      ),
-    );
-  }
-}
-
-class _ProfileManagerDialog extends StatefulWidget {
-  final VoidCallback onProfileChanged;
-  final bool ambientEnabled;
-
-  const _ProfileManagerDialog({
-    required this.onProfileChanged,
-    required this.ambientEnabled,
-  });
-
-  @override
-  State<_ProfileManagerDialog> createState() => _ProfileManagerDialogState();
-}
-
-class _ProfileManagerDialogState extends State<_ProfileManagerDialog> {
-  final noHoverOverlay = WidgetStateProperty.resolveWith<Color?>((states) {
-    return states.contains(WidgetState.hovered) ? Colors.transparent : null;
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return AlertDialog(
-      alignment: Alignment.centerRight,
-      insetPadding: const EdgeInsets.fromLTRB(24, 24, 16, 24),
-      backgroundColor: widget.ambientEnabled
-          ? theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.9)
-          : null,
-      title: Text(
-        'Manage Profiles',
-        style: theme.textTheme.titleSmall?.copyWith(fontSize: 15),
-      ),
-      content: SizedBox(
-        width: 300,
-        child: Theme(
-          data: theme.copyWith(
-            splashFactory: NoSplash.splashFactory,
-            hoverColor: Colors.transparent,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListenableBuilder(
-                listenable: profileManager,
-                builder: (context, _) => ConstrainedBox(
-                  constraints: const BoxConstraints(maxHeight: 200),
-                  child: SingleChildScrollView(
-                    child: Column(
-                      children: profileManager.profiles.map((profile) {
-                        final isActive =
-                            profile.id == profileManager.activeProfileId;
-                        return Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: isActive
-                                ? null
-                                : () async {
-                                    await profileManager
-                                        .switchProfile(profile.id);
-                                    widget.onProfileChanged();
-                                    if (mounted) setState(() {});
-                                  },
-                            hoverColor: Colors.transparent,
-                            splashColor: Colors.transparent,
-                            highlightColor: Colors.transparent,
-                            child: ListTile(
-                              dense: true,
-                              hoverColor: Colors.transparent,
-                              selectedColor: profile.color,
-                              selected: isActive,
-                              leading: CircleAvatar(
-                                radius: 12,
-                                backgroundColor: profile.color,
-                                child: Text(
-                                  profile.name.isNotEmpty
-                                      ? profile.name[0].toUpperCase()
-                                      : '?',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                              title: Text(profile.name),
-                              trailing: isActive
-                                  ? Icon(Icons.check,
-                                      size: 18, color: profile.color)
-                                  : profileManager.canDelete(profile.id)
-                                      ? IconButton(
-                                          icon: const Icon(Icons.delete_outline,
-                                              size: 18),
-                                          onPressed: () =>
-                                              _confirmDelete(profile),
-                                        )
-                                      : null,
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ),
-                ),
-              ),
-              const Divider(),
-              Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: _showCreateProfileDialog,
-                  hoverColor: Colors.transparent,
-                  splashColor: Colors.transparent,
-                  highlightColor: Colors.transparent,
-                  child: const ListTile(
-                    dense: true,
-                    leading: Icon(Icons.add),
-                    title: Text('Create new profile'),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-      actions: [
-        TextButton(
-          style: ButtonStyle(overlayColor: noHoverOverlay),
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Close'),
-        ),
-      ],
-    );
-  }
-
-  void _showCreateProfileDialog() {
-    final nameController = TextEditingController();
-    int? selectedColorIndex;
-    final theme = Theme.of(context);
-
-    final dialogTheme = theme.copyWith(
-      splashFactory: NoSplash.splashFactory,
-      highlightColor: Colors.transparent,
-      hoverColor: Colors.transparent,
-      inputDecorationTheme: theme.inputDecorationTheme.copyWith(
-        hoverColor: Colors.transparent,
-      ),
-    );
-    showDialog<void>(
-      context: context,
-      builder: (context) => Theme(
-        data: dialogTheme,
-        child: StatefulBuilder(
-          builder: (context, setStateDialog) => AlertDialog(
-            alignment: Alignment.centerRight,
-            insetPadding: const EdgeInsets.fromLTRB(24, 24, 16, 24),
-            title: Text(
-              'Create Profile',
-              style: theme.textTheme.titleSmall?.copyWith(fontSize: 15),
-            ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                TextField(
-                  controller: nameController,
-                  onTap: () {
-                    nameController.selection = TextSelection.collapsed(
-                      offset: nameController.text.length,
-                    );
-                  },
-                  decoration: InputDecoration(
-                    labelText: 'Profile name',
-                    hintText: 'Enter profile name',
-                    isDense: true,
-                    filled: false,
-                    enabledBorder: UnderlineInputBorder(
-                      borderSide: BorderSide(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    focusedBorder: UnderlineInputBorder(
-                      borderSide: BorderSide(
-                        color: theme.colorScheme.primary,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Color',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  children: List.generate(UserProfile.availableColors.length,
-                      (index) {
-                    final color = UserProfile.availableColors[index];
-                    return Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: () {
-                          setStateDialog(() {
-                            selectedColorIndex = index;
-                          });
-                        },
-                        hoverColor: Colors.transparent,
-                        splashColor: Colors.transparent,
-                        highlightColor: Colors.transparent,
-                        child: CircleAvatar(
-                          radius: 12,
-                          backgroundColor: Color(color),
-                          child: selectedColorIndex == index
-                              ? const Icon(Icons.check,
-                                  size: 14, color: Colors.white)
-                              : null,
-                        ),
-                      ),
-                    );
-                  }),
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                style: ButtonStyle(overlayColor: noHoverOverlay),
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
-              ),
-              TextButton(
-                style: ButtonStyle(overlayColor: noHoverOverlay),
-                onPressed: () async {
-                  if (nameController.text.trim().isNotEmpty) {
-                    final colorValue = selectedColorIndex != null
-                        ? UserProfile.availableColors[selectedColorIndex!]
-                        : null;
-                    await profileManager.createProfile(
-                      nameController.text.trim(),
-                      colorValue: colorValue,
-                    );
-                    if (mounted) {
-                      Navigator.pop(context);
-                      setState(() {});
-                    }
-                  }
-                },
-                child: const Text('Create'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _confirmDelete(UserProfile profile) {
-    final dialogTheme = Theme.of(context).copyWith(
-      splashFactory: NoSplash.splashFactory,
-      hoverColor: Colors.transparent,
-    );
-    showDialog<void>(
-      context: context,
-      builder: (context) => Theme(
-        data: dialogTheme,
-        child: AlertDialog(
-          alignment: Alignment.centerRight,
-          insetPadding: const EdgeInsets.fromLTRB(24, 24, 16, 24),
-          title: Text(
-            'Erase ${profile.name}?',
-            style:
-                Theme.of(context).textTheme.titleSmall?.copyWith(fontSize: 15),
-          ),
-          content: Text(
-            'All browsing data for this profile will be lost.',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-          actions: [
-            TextButton(
-              style: ButtonStyle(overlayColor: noHoverOverlay),
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              style: ButtonStyle(
-                overlayColor: noHoverOverlay,
-              ),
-              onPressed: () async {
-                await profileManager.deleteProfile(profile.id);
-                widget.onProfileChanged();
-                if (mounted) {
-                  Navigator.pop(context);
-                  setState(() {});
-                }
-              },
-              child: Text(
-                'Erase',
-                style: TextStyle(color: Colors.red.shade600),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 class FocusUrlIntent extends Intent {}
 
@@ -2033,52 +158,6 @@ class NewWindowIntent extends Intent {}
 
 class PageFontIntent extends Intent {}
 
-class TabData {
-  String currentUrl;
-  String? pageTitle;
-  final TextEditingController urlController;
-  final FocusNode urlFocusNode;
-  bool isUrlObscured = false;
-  bool hasUserInteractedWithPage = false;
-  final TextEditingController torrySearchController;
-  final FocusNode torrySearchFocusNode;
-  WebViewController? webViewController;
-  BrowserState state = const BrowserState.idle();
-  final List<String> history = [];
-  bool isClosed = false;
-  String? lastErrorMessage;
-  DateTime? lastErrorAt;
-  Brightness? detectedBrightness;
-  Color? detectedSeedColor;
-  Color? ambientSeedColor;
-  DateTime? lastAmbientProbeAt;
-  double scrollOffset = 0;
-  SavePasswordPromptData? pendingPasswordPrompt;
-  String? faviconUrl;
-  String? pendingNavigationUrl;
-  String? pendingNavigationSourceUrl;
-  bool isResolvingPageTitle = false;
-  String? forwardUrl; // URL to go forward to when on home page
-  String? homeLaunchedSiteFamily;
-  bool hideStaleWebViewUntilPageFinish = false;
-  bool pageRequestedWindowFullscreen = false;
-  bool windowWasFullscreenBeforePageRequest = false;
-  bool isMuted = false;
-  bool hasMediaPlaying = false;
-
-  TabData(this.currentUrl, {String? displayUrl})
-      : urlController = TextEditingController(text: displayUrl ?? currentUrl),
-        urlFocusNode = FocusNode(),
-        torrySearchController = TextEditingController(),
-        torrySearchFocusNode = FocusNode();
-}
-
-class _ThemeTone {
-  final Brightness brightness;
-  final Color? seedColor;
-
-  const _ThemeTone({required this.brightness, this.seedColor});
-}
 
 class BrowserPage extends StatefulWidget {
   const BrowserPage(
@@ -2190,16 +269,11 @@ class _BrowserPageState extends State<BrowserPage>
   StreamSubscription<bool>? _connectivitySubscription;
   late AnimationController _refreshIconController;
   AnimationController? _ambientController;
-  BuildContext? _urlAutocompleteTargetContext;
   OverlayEntry? _urlAutocompleteOverlayEntry;
   List<String> _urlAutocompleteOptions = const <String>[];
   double? _urlAutocompleteTargetWidth;
-  double _urlAutocompleteOverlayLeft = 0;
-  double _urlAutocompleteOverlayTop = 0;
-  double _urlAutocompleteOverlayBottom = 0;
   bool _urlAutocompleteOverlayUpdateQueued = false;
   int _lastUrlAutocompleteOverlayPointerDownMs = 0;
-  Future<void> _historySaveQueue = Future<void>.value();
   double _urlAutocompleteOverlayMaxWidth = _urlAutocompleteOverlayMaxWidthCap;
   double _urlAutocompleteOverlayMaxHeight = _urlAutocompleteOverlayMaxHeightCap;
   bool _urlAutocompleteShowAbove = false;
@@ -2237,12 +311,6 @@ class _BrowserPageState extends State<BrowserPage>
   bool _reorderableTabs = false;
   String _pageFontFamily = '';
   final Map<String, String> _siteFontFamilies = {};
-  final List<String> _history = [];
-  static const int _maxHistoryEntries = 200;
-  static const int _maxTabHistoryEntries = 50;
-  static const int _maxNavigationCacheEntries = 200;
-  static const int _navigationCachePrewarmCount = 8;
-  static const Duration _navigationCachePrewarmTimeout = Duration(seconds: 3);
   static const double _kMacOsLeadingInsetWithTrafficLights = 16.0;
   static const double _kMacOsAddressBarLeftOffset = 60.0;
   static const double _kDefaultLeadingInset = 16.0;
@@ -2250,136 +318,35 @@ class _BrowserPageState extends State<BrowserPage>
   static const double _kMacOsTopToolbarInset = 8.0;
   static const String _legacyLayoutFixScriptAsset =
       'assets/legacy_layout_fix.js';
-  static const String _disablePagePointerEventsScript = '''
-(() => {
-  try {
-    const blockerId = '__browserPointerBlockerStyle';
-    if (!document.getElementById(blockerId)) {
-      const style = document.createElement('style');
-      style.id = blockerId;
-      style.textContent = 'html, body, body * { pointer-events: none !important; }';
-      document.documentElement.appendChild(style);
-    }
-    return true;
-  } catch (_) {
-    return false;
-  }
-})();
-''';
-  static const String _restorePagePointerEventsScript = '''
-(() => {
-  try {
-    document.getElementById('__browserPointerBlockerStyle')?.remove();
-    return true;
-  } catch (_) {
-    return false;
-  }
-})();
-''';
+
   AiService? _aiService;
   List<String>? _cachedAiSearchSuggestions;
   DateTime? _lastAiSuggestionFetchAt;
-  final Map<String, int> _navigationCacheIndex = {};
+  final HistoryService _historyService = HistoryService();
   final MenuController _overflowMenuController = MenuController();
   Timer? _overflowMenuCloseTimer;
   bool _isOverflowTriggerHovered = false;
   bool _isOverflowMenuHovered = false;
   bool _overflowMenuOpen = false;
+  final LayerLink _urlAutocompleteLayerLink = LayerLink();
+  final GlobalKey _urlAutocompleteTargetKey = GlobalKey();
   bool _urlAutocompleteOpen = false;
   bool _modalInteractionBlockOpen = false;
   bool _quickUrlPromptOpen = false;
+  bool _ignoreNextUrlFocusRestore = false;
   Widget? _androidFullscreenWidget;
   VoidCallback? _hideAndroidFullscreenWidget;
   bool _windowButtonsSyncRetryQueued = false;
   Timer? _windowButtonsSyncRetryTimer;
-  final Map<String, String> _faviconCacheByHost = {};
-  final Map<String, bool> _faviconHostSafetyCache = {};
+  final FaviconService _faviconService = FaviconService();
+  final ThemeProbeService _themeProbeService = ThemeProbeService();
+  final FullscreenService _fullscreenService = FullscreenService();
+  final PointerEventsService _pointerEventsService = PointerEventsService();
   String? _legacyLayoutFixScript;
-  bool _tabFaviconBadgeEnabled = false;
   int? _hoveredTabIndex;
   static const Duration _addressBarAutoHideDelay = Duration(seconds: 4);
   Timer? _addressBarAutoHideTimer;
   bool _isAddressBarHovered = false;
-
-  static const String _themeProbeScript = '''
-(() => {
-  const isTransparent = (color) => {
-    if (!color) return true;
-    const normalized = color.toLowerCase().replace(/\\s+/g, '');
-    return normalized === 'transparent' || normalized === 'rgba(0,0,0,0)';
-  };
-  const getBg = (el) => {
-    if (!el) return null;
-    const style = window.getComputedStyle(el);
-    return style ? style.backgroundColor : null;
-  };
-  const normalizeColor = (raw) => {
-    if (!raw || typeof raw !== 'string') return null;
-    const candidate = raw.trim();
-    if (!candidate) return null;
-    const probe = document.createElement('div');
-    probe.style.color = '';
-    probe.style.color = candidate;
-    if (!probe.style.color) return null;
-    return probe.style.color;
-  };
-  const getEffectiveBg = (el) => {
-    let current = el;
-    let depth = 0;
-    while (current && depth < 20) {
-      const color = getBg(current);
-      if (color && !isTransparent(color)) return color;
-      current = current.parentElement;
-      depth += 1;
-    }
-    return null;
-  };
-  const centerEl = document.elementFromPoint(
-    window.innerWidth / 2,
-    window.innerHeight / 2
-  );
-  const sampleBg = getEffectiveBg(centerEl);
-  const bg = getEffectiveBg(document.documentElement) ||
-    getEffectiveBg(document.body) || null;
-  const themeColorMeta = Array.from(
-    document.querySelectorAll('meta[name="theme-color"]')
-  );
-  const preferredThemeColor = themeColorMeta.find((meta) => {
-    const media = meta.getAttribute('media');
-    if (!media) return true;
-    return window.matchMedia ? window.matchMedia(media).matches : false;
-  }) || themeColorMeta[0] || null;
-  const themeColor = normalizeColor(preferredThemeColor
-    ?.getAttribute('content') || null);
-  const metaColorScheme = document.querySelector('meta[name="color-scheme"]')
-    ?.getAttribute('content') || null;
-  const colorScheme = window.getComputedStyle(document.documentElement)
-    .colorScheme || null;
-  const textColor = window.getComputedStyle(document.body || document.documentElement)
-    .color || null;
-  const accentHintEl = document.querySelector(
-    'header, nav, [role="banner"], [class*="header"], [class*="navbar"]'
-  ) || document.querySelector(
-    'a, button, [role="button"], [class*="btn"], [class*="link"]'
-  );
-  const accentHint = accentHintEl
-    ? (getEffectiveBg(accentHintEl) ||
-      window.getComputedStyle(accentHintEl).color || null)
-    : null;
-  const prefersDark = window.matchMedia &&
-    window.matchMedia('(prefers-color-scheme: dark)').matches;
-  return JSON.stringify({
-    bg,
-    sampleBg,
-    themeColor,
-    accentHint,
-    metaColorScheme,
-    colorScheme,
-    textColor,
-    prefersDark
-  });
-})()
-''';
 
   String _displayUrl(String url) => url == defaultHomepageUrl ? '' : url;
 
@@ -2421,7 +388,15 @@ class _BrowserPageState extends State<BrowserPage>
     }
   }
 
-  bool get _ambientActive => widget.ambientToolbarEnabled;
+  bool get _hasAmbientColor {
+    if (tabs.isEmpty) return false;
+    final index = tabController.index;
+    if (index < 0 || index >= tabs.length) return false;
+    final tab = tabs[index];
+    return tab.ambientSeedColor != null || tab.detectedSeedColor != null;
+  }
+
+  bool get _ambientActive => widget.ambientToolbarEnabled && _hasAmbientColor;
 
   // void _syncAmbientAnimation() {
   //   // Disabled - causes hover flicker on macOS
@@ -2455,15 +430,23 @@ class _BrowserPageState extends State<BrowserPage>
     _syncAmbientAnimation();
     _pageFontFamily = widget.pageFontFamily;
     _loadReorderableTabs();
-    _loadTabFaviconBadgeEnabled();
+    _faviconService.loadTabFaviconBadgeEnabled(mounted: mounted, setState: setState);
     _loadFontOverrides();
-    _loadNavigationCacheIndex();
+    _historyService.loadNavigationCacheIndex(
+      privateBrowsing: widget.privateBrowsing,
+      advancedCacheEnabled: widget.advancedCacheEnabled,
+      getUserAgent: (url) => _getUserAgent(widget.useModernUserAgent),
+    );
     tabs.add(_createTab(widget.initialUrl));
     tabController = TabController(length: 1, vsync: this);
     previousTabIndex = 0;
     tabController.addListener(_onTabChanged);
     _loadBookmarks();
-    _loadHistory();
+    _historyService.loadHistory(
+      privateBrowsing: widget.privateBrowsing,
+      advancedCacheEnabled: widget.advancedCacheEnabled,
+      getUserAgent: (url) => _getUserAgent(widget.useModernUserAgent),
+    );
     profileManager.addListener(_onProfileChanged);
     if (widget.adBlocking) {
       loadAdBlockers();
@@ -2472,6 +455,11 @@ class _BrowserPageState extends State<BrowserPage>
       _aiService = AiService();
     }
     _initConnectivity();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && activeTab.currentUrl == defaultHomepageUrl) {
+        activeTab.urlFocusNode.requestFocus();
+      }
+    });
   }
 
   bool _handleKeyEvent(KeyEvent event) {
@@ -2573,155 +561,26 @@ class _BrowserPageState extends State<BrowserPage>
     return false;
   }
 
-  Future<void> _toggleFullscreen() async {
-    if (!_isDesktopPlatform) return;
-    final isFullscreen = await windowManager.isFullScreen();
-    await windowManager.setFullScreen(!isFullscreen);
-  }
+  Future<void> _toggleFullscreen() => _fullscreenService.toggleFullscreen();
 
-  Future<void> _exitFullscreenIfNeeded() async {
-    if (!_isDesktopPlatform) return;
-    final isFullscreen = await windowManager.isFullScreen();
-    if (isFullscreen) {
-      await windowManager.setFullScreen(false);
-    }
-  }
+  Future<void> _exitFullscreenIfNeeded() => _fullscreenService.exitFullscreenIfNeeded();
 
-  Future<void> _setPageRequestedWindowFullscreen(
-    TabData tab,
-    bool enabled,
-  ) async {
-    if (!_isDesktopPlatform) return;
-    final isFullscreen = await windowManager.isFullScreen();
-    if (enabled) {
-      if (tab.pageRequestedWindowFullscreen) {
-        return;
-      }
-      tab.windowWasFullscreenBeforePageRequest = isFullscreen;
-      tab.pageRequestedWindowFullscreen = true;
-      if (!isFullscreen) {
-        await windowManager.setFullScreen(true);
-      }
-      return;
-    }
-    final shouldExitFullscreen = tab.pageRequestedWindowFullscreen;
-    final shouldRestoreWindowedState =
-        !tab.windowWasFullscreenBeforePageRequest;
-    tab.pageRequestedWindowFullscreen = false;
-    tab.windowWasFullscreenBeforePageRequest = false;
-    if (shouldExitFullscreen && shouldRestoreWindowedState && isFullscreen) {
-      await windowManager.setFullScreen(false);
-    }
-  }
+  Future<void> _setPageRequestedWindowFullscreen(TabData tab, bool enabled) =>
+      _fullscreenService.setPageRequestedWindowFullscreen(tab, enabled);
 
-  Future<void> _handlePageFullscreenMessage(
-    TabData tab,
-    String message,
-  ) async {
-    if (!mounted || tab.isClosed) {
-      return;
-    }
-    final normalized = message.trim().toLowerCase();
-    if (normalized == 'enter') {
-      if (!identical(tab, activeTab)) {
-        return;
-      }
-      await _setPageRequestedWindowFullscreen(tab, true);
-    } else if (normalized == 'exit') {
-      await _setPageRequestedWindowFullscreen(tab, false);
-    }
-  }
+  Future<void> _handlePageFullscreenMessage(TabData tab, String message) =>
+      _fullscreenService.handlePageFullscreenMessage(
+        tab,
+        message,
+        activeTab: activeTab,
+        mounted: mounted,
+      );
 
-  Future<void> _exitPageFullscreen(TabData tab) async {
-    final controller = tab.webViewController;
-    if (controller == null) return;
-    try {
-      await controller.runJavaScript(r'''
-        (function() {
-          const exit =
-            document.exitFullscreen ||
-            document.webkitExitFullscreen ||
-            document.mozCancelFullScreen ||
-            document.msExitFullscreen;
-          if (exit) {
-            exit.call(document);
-          }
-          const videos = document.querySelectorAll('video');
-          for (const video of videos) {
-            if (video.webkitDisplayingFullscreen && video.webkitExitFullscreen) {
-              video.webkitExitFullscreen();
-            }
-          }
-          return true;
-        })();
-      ''');
-    } catch (e) {
-      logger.w('Failed to exit page fullscreen: $e');
-    }
-  }
+  Future<void> _exitPageFullscreen(TabData tab) =>
+      _fullscreenService.exitPageFullscreen(tab);
 
-  Future<void> _installFullscreenBridge(TabData tab) async {
-    final controller = tab.webViewController;
-    if (controller == null) return;
-    await controller.runJavaScript(r'''
-      (function() {
-        if (window.__browserFullscreenBridgeInstalled) {
-          return true;
-        }
-        window.__browserFullscreenBridgeInstalled = true;
-
-        function notifyFullscreenState(isFullscreen) {
-          try {
-            FullscreenChannel.postMessage(isFullscreen ? 'enter' : 'exit');
-          } catch (_) {}
-        }
-
-        function syncDocumentFullscreenState() {
-          const activeElement =
-            document.fullscreenElement ||
-            document.webkitFullscreenElement ||
-            document.mozFullScreenElement ||
-            document.msFullscreenElement;
-          notifyFullscreenState(!!activeElement);
-        }
-
-        function bindVideoElement(video) {
-          if (!video || video.__browserFullscreenVideoBound) {
-            return;
-          }
-          video.__browserFullscreenVideoBound = true;
-          video.addEventListener('webkitbeginfullscreen', function() {
-            notifyFullscreenState(true);
-          });
-          video.addEventListener('webkitendfullscreen', function() {
-            notifyFullscreenState(false);
-          });
-        }
-
-        function bindExistingVideos() {
-          const videos = document.querySelectorAll('video');
-          for (const video of videos) {
-            bindVideoElement(video);
-          }
-        }
-
-        document.addEventListener('fullscreenchange', syncDocumentFullscreenState, true);
-        document.addEventListener('webkitfullscreenchange', syncDocumentFullscreenState, true);
-        document.addEventListener('mozfullscreenchange', syncDocumentFullscreenState, true);
-        document.addEventListener('MSFullscreenChange', syncDocumentFullscreenState, true);
-
-        const observer = new MutationObserver(bindExistingVideos);
-        observer.observe(document.documentElement || document.body, {
-          childList: true,
-          subtree: true,
-        });
-
-        bindExistingVideos();
-        syncDocumentFullscreenState();
-        return true;
-      })();
-    ''');
-  }
+  Future<void> _installFullscreenBridge(TabData tab) =>
+      _fullscreenService.installFullscreenBridge(tab);
 
   Future<void> _configurePlatformSpecificWebView(TabData tab) async {
     final controller = tab.webViewController;
@@ -2858,24 +717,7 @@ class _BrowserPageState extends State<BrowserPage>
   bool get _isDesktopPlatform =>
       !kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS);
 
-  bool _isValidHistoryUrl(String url) {
-    try {
-      final uri = Uri.parse(url);
-      // Only allow http, https, and about schemes
-      if (uri.scheme != 'http' &&
-          uri.scheme != 'https' &&
-          uri.scheme != 'about') {
-        return false;
-      }
-      // Defense-in-depth: block dangerous substrings even with a strict scheme allowlist.
-      if (url.contains('file://') || url.contains('javascript:')) {
-        return false;
-      }
-      return true;
-    } catch (e) {
-      return false;
-    }
-  }
+  bool _isValidHistoryUrl(String url) => _historyService.isValidHistoryUrl(url);
 
   void _initConnectivity() async {
     _isOnline = await _connectivityService.checkConnectivity();
@@ -2907,6 +749,10 @@ class _BrowserPageState extends State<BrowserPage>
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted || tab.isClosed) return;
         if (tab.urlFocusNode.hasFocus) return;
+        if (_ignoreNextUrlFocusRestore) {
+          _ignoreNextUrlFocusRestore = false;
+          return;
+        }
         final nowMs = DateTime.now().millisecondsSinceEpoch;
         final interactedWithOverlayRecently =
             _urlAutocompleteOverlayEntry != null &&
@@ -2936,26 +782,25 @@ class _BrowserPageState extends State<BrowserPage>
   }
 
   void _selectUrlAutocompleteOption(String value) {
+    _ignoreNextUrlFocusRestore = true;
     activeTab.urlFocusNode.unfocus();
     _removeUrlAutocompleteOverlay();
     _loadUrl(value);
   }
 
-  String _normalizeHistoryKey(String value) => value.trim().toLowerCase();
-
   void _removeUrlAutocompleteSuggestion(String value) {
-    final normalized = _normalizeHistoryKey(value);
-    _history.removeWhere((entry) => _normalizeHistoryKey(entry) == normalized);
+    final normalized = _historyService.normalizeKey(value);
+    _historyService.removeUrl(value);
     for (final tab in tabs) {
       tab.history
-          .removeWhere((entry) => _normalizeHistoryKey(entry) == normalized);
+          .removeWhere((entry) => _historyService.normalizeKey(entry) == normalized);
     }
 
     _urlAutocompleteOptions =
-        _historyUrlSuggestions(activeTab.urlController.text)
+        _historyService.urlSuggestions(activeTab.urlController.text)
             .toList(growable: false);
 
-    unawaited(_saveHistory());
+    unawaited(_historyService.saveHistory(privateBrowsing: widget.privateBrowsing));
 
     if (_urlAutocompleteOptions.isEmpty) {
       _removeUrlAutocompleteOverlay();
@@ -2993,7 +838,8 @@ class _BrowserPageState extends State<BrowserPage>
         _removeUrlAutocompleteOverlay();
         return;
       }
-      final targetBox = _urlAutocompleteTargetContext?.findRenderObject();
+      final targetBox =
+          _urlAutocompleteTargetKey.currentContext?.findRenderObject();
       if (targetBox is RenderBox && targetBox.hasSize) {
         _urlAutocompleteTargetWidth = targetBox.size.width;
         final overlayBox =
@@ -3011,11 +857,6 @@ class _BrowserPageState extends State<BrowserPage>
           final showAbove = spaceBelow < _urlAutocompleteOverlayFlipThreshold &&
               spaceAbove > spaceBelow;
           _urlAutocompleteShowAbove = showAbove;
-          _urlAutocompleteOverlayLeft = dx;
-          _urlAutocompleteOverlayTop =
-              dy + targetBox.size.height + _urlAutocompleteOverlayOffset;
-          _urlAutocompleteOverlayBottom =
-              overlayBox.size.height - dy + _urlAutocompleteOverlayOffset;
           _urlAutocompleteOverlayMaxWidth =
               (overlayBox.size.width - dx - minMargin).clamp(
                   _urlAutocompleteOverlayMinWidth,
@@ -3027,7 +868,7 @@ class _BrowserPageState extends State<BrowserPage>
           _urlAutocompleteOverlayMaxHeight = maxHeight;
         }
       }
-      final options = _historyUrlSuggestions(tab.urlController.text)
+      final options = _historyService.urlSuggestions(tab.urlController.text)
           .toList(growable: false);
       if (options.isEmpty) {
         _removeUrlAutocompleteOverlay();
@@ -3157,14 +998,21 @@ class _BrowserPageState extends State<BrowserPage>
                     _removeUrlAutocompleteOverlay();
                   },
                 ),
-                Positioned(
-                  left: _urlAutocompleteOverlayLeft,
-                  top: _urlAutocompleteShowAbove
-                      ? null
-                      : _urlAutocompleteOverlayTop,
-                  bottom: _urlAutocompleteShowAbove
-                      ? _urlAutocompleteOverlayBottom
-                      : null,
+                CompositedTransformFollower(
+                  link: _urlAutocompleteLayerLink,
+                  showWhenUnlinked: false,
+                  targetAnchor: _urlAutocompleteShowAbove
+                      ? Alignment.topLeft
+                      : Alignment.bottomLeft,
+                  followerAnchor: _urlAutocompleteShowAbove
+                      ? Alignment.bottomLeft
+                      : Alignment.topLeft,
+                  offset: Offset(
+                    0,
+                    _urlAutocompleteShowAbove
+                        ? -_urlAutocompleteOverlayOffset
+                        : _urlAutocompleteOverlayOffset,
+                  ),
                   child: Listener(
                     behavior: HitTestBehavior.opaque,
                     onPointerDown: (_) {
@@ -3214,9 +1062,13 @@ class _BrowserPageState extends State<BrowserPage>
   }
 
   void _syncPointerEventsForAllTabs() {
-    for (final tab in tabs) {
-      _syncPagePointerEvents(tab);
-    }
+    _pointerEventsService.syncPointerEventsForAllTabs(
+      tabs,
+      activeTab: activeTab,
+      urlAutocompleteOpen: _urlAutocompleteOpen,
+      modalInteractionBlockOpen: _modalInteractionBlockOpen,
+      overflowMenuOpen: _overflowMenuOpen,
+    );
   }
 
   Future<T?> _showWithModalInteractionBlock<T>(
@@ -3230,25 +1082,13 @@ class _BrowserPageState extends State<BrowserPage>
   }
 
   void _syncPagePointerEvents(TabData tab) {
-    if (tab.isClosed) return;
-    final shouldBlock = identical(tab, activeTab) &&
-        (_urlAutocompleteOpen ||
-            _modalInteractionBlockOpen ||
-            _overflowMenuOpen);
-    unawaited(_setTabPointerEventsEnabled(tab, !shouldBlock));
-  }
-
-  Future<void> _setTabPointerEventsEnabled(TabData tab, bool enabled) async {
-    final controller = tab.webViewController;
-    if (controller == null || tab.isClosed) return;
-    final script = enabled
-        ? _restorePagePointerEventsScript
-        : _disablePagePointerEventsScript;
-    try {
-      await controller.runJavaScript(script);
-    } catch (_) {
-      // Best effort only.
-    }
+    _pointerEventsService.syncPagePointerEvents(
+      tab,
+      activeTab: activeTab,
+      urlAutocompleteOpen: _urlAutocompleteOpen,
+      modalInteractionBlockOpen: _modalInteractionBlockOpen,
+      overflowMenuOpen: _overflowMenuOpen,
+    );
   }
 
   @override
@@ -3276,7 +1116,9 @@ class _BrowserPageState extends State<BrowserPage>
     }
     if (oldWidget.advancedCacheEnabled != widget.advancedCacheEnabled &&
         widget.advancedCacheEnabled) {
-      _prewarmNavigationCache();
+      _historyService.prewarmNavigationCache(
+        getUserAgent: (url) => _getUserAgent(widget.useModernUserAgent),
+      );
     }
     if (oldWidget.useModernUserAgent != widget.useModernUserAgent) {
       _applyUserAgentToAllTabs();
@@ -3290,11 +1132,15 @@ class _BrowserPageState extends State<BrowserPage>
     }
     if (oldWidget.privateBrowsing && !widget.privateBrowsing) {
       _loadBookmarks();
-      _loadHistory();
+      _historyService.loadHistory(
+        privateBrowsing: widget.privateBrowsing,
+        advancedCacheEnabled: widget.advancedCacheEnabled,
+        getUserAgent: (url) => _getUserAgent(widget.useModernUserAgent),
+      );
     }
     if (!oldWidget.privateBrowsing && widget.privateBrowsing) {
       bookmarkManager.clear();
-      _history.clear();
+      _historyService.clearAll();
     }
     if (oldWidget.autoHideAddressBarEnabled !=
         widget.autoHideAddressBarEnabled) {
@@ -3322,7 +1168,7 @@ class _BrowserPageState extends State<BrowserPage>
             offset: _displayUrl(newHomeUrl).length,
           ),
         );
-        tab.faviconUrl = _defaultFaviconUrlFor(newHomeUrl);
+        tab.faviconUrl = _faviconService.defaultFaviconUrlFor(newHomeUrl);
         tab.state = BrowserState.success(newHomeUrl);
         if (newHomeUrl == defaultHomepageUrl) {
           tab.webViewController = null;
@@ -3409,100 +1255,33 @@ class _BrowserPageState extends State<BrowserPage>
   }
 
   Future<void> _updateThemeFromTab(TabData tab) async {
-    if (widget.themeMode != AppThemeMode.adjust) return;
-    if (widget.strictMode) {
-      widget.onPageThemeChanged?.call(ThemeMode.system, null);
-      return;
-    }
-    final controller = tab.webViewController;
-    if (controller == null) return;
-    try {
-      final previousBrightness = tab.detectedBrightness;
-      final previousSeed = tab.detectedSeedColor;
-      final result =
-          await controller.runJavaScriptReturningResult(_themeProbeScript);
-      final probe = _parseThemeProbe(result);
-      final tone = probe == null ? null : _toneFromProbe(probe);
-      if (tone != null) {
-        tab.detectedBrightness = tone.brightness;
-        tab.detectedSeedColor = tone.seedColor;
-        widget.onPageThemeChanged?.call(
-          tone.brightness == Brightness.dark ? ThemeMode.dark : ThemeMode.light,
-          tone.seedColor,
-        );
-      } else {
-        tab.detectedBrightness = null;
-        tab.detectedSeedColor = null;
-        widget.onPageThemeChanged?.call(ThemeMode.system, null);
-      }
-      if (mounted &&
-          (previousBrightness != tab.detectedBrightness ||
-              previousSeed != tab.detectedSeedColor)) {
-        setState(() {});
-      }
-    } catch (_) {
-      tab.detectedBrightness = null;
-      tab.detectedSeedColor = null;
-      widget.onPageThemeChanged?.call(ThemeMode.system, null);
-    }
+    await _themeProbeService.updateThemeFromTab(
+      tab,
+      themeMode: widget.themeMode,
+      strictMode: widget.strictMode,
+      onPageThemeChanged: widget.onPageThemeChanged,
+      mounted: mounted,
+      setState: setState,
+    );
   }
 
   Future<void> _updateAmbientFromTab(TabData tab) async {
-    if (!widget.ambientToolbarEnabled) return;
-    if (widget.strictMode) return;
-    if (tab.currentUrl == defaultHomepageUrl || tab.state is BrowserError) {
-      if (tab.ambientSeedColor != null) {
-        tab.ambientSeedColor = null;
-        if (mounted && identical(tab, activeTab)) {
-          setState(() {});
-        }
-      }
-      return;
-    }
-    // Run theme probe only once per page, not repeatedly
-    // This prevents hover flicker on macOS while still detecting page color
-    if (tab.lastAmbientProbeAt != null) {
-      return;
-    }
-    tab.lastAmbientProbeAt = DateTime.now();
-
-    final controller = tab.webViewController;
-    if (controller == null) return;
-    try {
-      final previousSeed = tab.ambientSeedColor;
-      final result =
-          await controller.runJavaScriptReturningResult(_themeProbeScript);
-      final probe = _parseThemeProbe(result);
-      final decision = probe == null ? null : resolveThemeProbeDecision(probe);
-      tab.ambientSeedColor = decision?.seedColor;
-      if (tab.ambientSeedColor == null) {
-        // Allow the delayed retries after navigation to probe again once the
-        // destination page has finished painting real content.
-        tab.lastAmbientProbeAt = null;
-      }
-      if (mounted &&
-          identical(tab, activeTab) &&
-          previousSeed != tab.ambientSeedColor) {
-        setState(() {});
-      }
-    } catch (_) {
-      // Best-effort only. Clear the probe marker so later retries can still run.
-      tab.lastAmbientProbeAt = null;
-    }
+    await _themeProbeService.updateAmbientFromTab(
+      tab,
+      ambientToolbarEnabled: widget.ambientToolbarEnabled,
+      strictMode: widget.strictMode,
+      activeTab: activeTab,
+      mounted: mounted,
+      setState: setState,
+    );
   }
 
   void _resetAmbientProbeState() {
-    var shouldRebuild = false;
-    for (final tab in tabs) {
-      if (tab.ambientSeedColor != null || tab.lastAmbientProbeAt != null) {
-        shouldRebuild = true;
-      }
-      tab.ambientSeedColor = null;
-      tab.lastAmbientProbeAt = null;
-    }
-    if (shouldRebuild && mounted) {
-      setState(() {});
-    }
+    _themeProbeService.resetAmbientProbeState(
+      tabs,
+      mounted: mounted,
+      setState: setState,
+    );
   }
 
   Future<void> _applyFontOverride(TabData tab) async {
@@ -3512,33 +1291,10 @@ class _BrowserPageState extends State<BrowserPage>
     final normalizedFont = _resolveFontForTab(tab).trim();
     try {
       if (normalizedFont.isEmpty) {
-        await controller.runJavaScript('''
-(() => {
-  const style = document.getElementById('browser-font-override-style');
-  if (style) {
-    style.remove();
-  }
-  return true;
-})();
-''');
+        await controller.runJavaScript(removeFontOverrideScript);
         return;
       }
-      final fontFamilyJson = jsonEncode(normalizedFont);
-      await controller.runJavaScript('''
-(() => {
-  const fontFamily = $fontFamilyJson;
-  const styleId = 'browser-font-override-style';
-  let style = document.getElementById(styleId);
-  if (!style) {
-    style = document.createElement('style');
-    style.id = styleId;
-    (document.head || document.documentElement).appendChild(style);
-  }
-  style.textContent =
-    'html, body, body * { font-family: ' + fontFamily + ' !important; }';
-  return true;
-})();
-''');
+      await controller.runJavaScript(buildFontOverrideScript(normalizedFont));
     } catch (e, s) {
       logger.w('Failed to apply page font override', error: e, stackTrace: s);
     }
@@ -3550,28 +1306,7 @@ class _BrowserPageState extends State<BrowserPage>
     final controller = tab.webViewController;
     if (controller == null || tab.isClosed) return;
     try {
-      await controller.runJavaScript('''
-(() => {
-  try {
-    const el = document.activeElement;
-    if (!el || el === document.body || el === document.documentElement) {
-      return true;
-    }
-    const tag = (el.tagName || '').toLowerCase();
-    if (!tag) return true;
-    const isEditable =
-      el.isContentEditable ||
-      tag === 'input' ||
-      tag === 'textarea' ||
-      tag === 'select';
-    if (isEditable) return true;
-    if (typeof el.blur === 'function') el.blur();
-    return true;
-  } catch (_) {
-    return false;
-  }
-})();
-''');
+      await controller.runJavaScript(clearInitialFocusScript);
     } catch (e, s) {
       quietLogger.w(
         'Failed to clear initial page focus',
@@ -3584,7 +1319,7 @@ class _BrowserPageState extends State<BrowserPage>
   bool _parseJsBool(dynamic value) {
     if (value is bool) return value;
     if (value is num) return value != 0;
-    final raw = _normalizeJsResult(value).trim().toLowerCase();
+    final raw = FaviconUrlPolicy.normalizeJsResult(value).trim().toLowerCase();
     if (raw == 'true') return true;
     if (raw == 'false') return false;
     if (raw == '1') return true;
@@ -3597,11 +1332,7 @@ class _BrowserPageState extends State<BrowserPage>
     final controller = tab.webViewController;
     if (controller == null || tab.isClosed) return false;
     try {
-      final result = await controller.runJavaScriptReturningResult('''
-(() => {
-  try { return !!window.__browserUserInteracted; } catch (_) { return false; }
-})();
-''');
+      final result = await controller.runJavaScriptReturningResult(isPageUserInteractedScript);
       final interacted = _parseJsBool(result);
       if (interacted) {
         tab.hasUserInteractedWithPage = true;
@@ -3618,100 +1349,7 @@ class _BrowserPageState extends State<BrowserPage>
     final controller = tab.webViewController;
     if (controller == null || tab.isClosed) return;
     try {
-      await controller.runJavaScript('''
-(() => {
-  try {
-    const flag = '__browserInitialFocusInterceptorInstalled';
-    if (window[flag]) return true;
-    window[flag] = true;
-
-    const interactFlag = '__browserUserInteracted';
-    if (window[interactFlag] == null) window[interactFlag] = false;
-
-    const isEditable = (el) => {
-      if (!el) return false;
-      const tag = (el.tagName || '').toLowerCase();
-      if (el.isContentEditable) return true;
-      return tag === 'input' || tag === 'textarea' || tag === 'select';
-    };
-
-    const styleId = '__browser-initial-focus-style';
-    const ensureSuppressionStyle = () => {
-      let style = document.getElementById(styleId);
-      if (style) return style;
-      style = document.createElement('style');
-      style.id = styleId;
-      style.textContent = `
-*:focus:not(input):not(textarea):not(select):not([contenteditable="true"]),
-*:focus-visible:not(input):not(textarea):not(select):not([contenteditable="true"]) {
-  outline: none !important;
-  box-shadow: none !important;
-}`;
-      (document.head || document.documentElement).appendChild(style);
-      return style;
-    };
-
-    const removeSuppressionStyle = () => {
-      const style = document.getElementById(styleId);
-      if (style) style.remove();
-    };
-
-    ensureSuppressionStyle();
-
-    const blurIfUnwanted = (el) => {
-      if (window[interactFlag]) return;
-      if (!el || el === document.body || el === document.documentElement) return;
-      if (isEditable(el)) return;
-      if (typeof el.blur === 'function') el.blur();
-    };
-
-    const onFocusIn = (e) => {
-      blurIfUnwanted(e && e.target ? e.target : document.activeElement);
-    };
-    document.addEventListener('focusin', onFocusIn, true);
-
-    const onPointerDown = () => {
-      window[interactFlag] = true;
-      removeSuppressionStyle();
-      document.removeEventListener('focusin', onFocusIn, true);
-      document.removeEventListener('pointerdown', onPointerDown, true);
-      document.removeEventListener('keydown', onKeyDown, true);
-    };
-
-    const onKeyDown = (e) => {
-      // If the user starts interacting with the page via keyboard navigation,
-      // stop suppressing focus immediately.
-      if (!e) return;
-      window[interactFlag] = true;
-      removeSuppressionStyle();
-      document.removeEventListener('focusin', onFocusIn, true);
-      document.removeEventListener('pointerdown', onPointerDown, true);
-      document.removeEventListener('keydown', onKeyDown, true);
-    };
-
-    document.addEventListener('pointerdown', onPointerDown, true);
-    document.addEventListener('keydown', onKeyDown, true);
-
-    // Best-effort immediate cleanup if something is already focused.
-    blurIfUnwanted(document.activeElement);
-
-    // Safety: remove suppression after a short window to avoid breaking
-    // legitimate keyboard-only flows.
-    const WINDOW_MS = 1500;
-    setTimeout(() => {
-      if (window[interactFlag]) return;
-      removeSuppressionStyle();
-      document.removeEventListener('focusin', onFocusIn, true);
-      document.removeEventListener('pointerdown', onPointerDown, true);
-      document.removeEventListener('keydown', onKeyDown, true);
-      window[interactFlag] = true;
-    }, WINDOW_MS);
-    return true;
-  } catch (_) {
-    return false;
-  }
-})();
-''');
+      await controller.runJavaScript(installInitialFocusInterceptorScript);
     } catch (e, s) {
       quietLogger.w(
         'Failed to install initial focus interceptor',
@@ -3727,22 +1365,7 @@ class _BrowserPageState extends State<BrowserPage>
     final controller = tab.webViewController;
     if (controller == null || tab.isClosed) return;
     try {
-      await controller.runJavaScript('''
-(() => {
-  try {
-    if (window.pageTapListenerAdded) return true;
-    const notifyTap = function() {
-      try { PageTapChannel.postMessage('tap'); } catch (_) {}
-      try { window.__browserUserInteracted = true; } catch (_) {}
-    };
-    window.addEventListener('pointerdown', notifyTap, true);
-    window.pageTapListenerAdded = true;
-    return true;
-  } catch (_) {
-    return false;
-  }
-})();
-''');
+      await controller.runJavaScript(ensurePageTapListenerScript);
     } catch (_) {
       // Best-effort only.
     }
@@ -3782,14 +1405,8 @@ class _BrowserPageState extends State<BrowserPage>
     }
   }
 
-  String? _hostFromUrl(String url) {
-    final uri = Uri.tryParse(url);
-    if (uri == null || uri.host.isEmpty) return null;
-    return uri.host.toLowerCase();
-  }
-
   String _resolveFontForTab(TabData tab) {
-    final host = _hostFromUrl(tab.currentUrl);
+    final host = _faviconService.hostFromUrl(tab.currentUrl);
     if (host != null && _siteFontFamilies.containsKey(host)) {
       return _siteFontFamilies[host] ?? '';
     }
@@ -3827,46 +1444,6 @@ class _BrowserPageState extends State<BrowserPage>
     );
   }
 
-  Map<String, dynamic>? _parseThemeProbe(dynamic result) {
-    if (result is Map<String, dynamic>) return result;
-    final raw = _normalizeJsResult(result);
-    if (raw.isEmpty) return null;
-    final decoded = _tryDecodeProbe(raw);
-    if (decoded != null) return decoded;
-    final unescaped = _unescapeWrappedJson(raw);
-    if (unescaped != raw) {
-      final decodedUnescaped = _tryDecodeProbe(unescaped);
-      if (decodedUnescaped != null) return decodedUnescaped;
-    }
-    return null;
-  }
-
-  Map<String, dynamic>? _tryDecodeProbe(String raw) {
-    try {
-      final decoded = jsonDecode(raw);
-      if (decoded is String) {
-        final nested = jsonDecode(decoded);
-        if (nested is Map<String, dynamic>) return nested;
-      }
-      if (decoded is Map<String, dynamic>) return decoded;
-    } catch (_) {}
-    return null;
-  }
-
-  String _normalizeJsResult(dynamic result) {
-    return FaviconUrlPolicy.normalizeJsResult(result);
-  }
-
-  String _unescapeWrappedJson(String raw) {
-    return FaviconUrlPolicy.unescapeWrappedJson(raw);
-  }
-
-  _ThemeTone? _toneFromProbe(Map<String, dynamic> probe) {
-    final tone = resolveThemeProbeDecision(probe);
-    if (tone == null) return null;
-    return _ThemeTone(brightness: tone.brightness, seedColor: tone.seedColor);
-  }
-
   Future<void> loadAdBlockers() async {
     try {
       final jsonString = await rootBundle.loadString('assets/ad_blockers.json');
@@ -3896,6 +1473,9 @@ class _BrowserPageState extends State<BrowserPage>
     _updateAmbientFromTab(tabs[tabController.index]);
     _setActiveTabUrlObscured(false);
     _maybeScheduleAddressBarAutoHide(activeTab, revealImmediately: true);
+    if (activeTab.currentUrl == defaultHomepageUrl) {
+      activeTab.urlFocusNode.requestFocus();
+    }
     if (mounted) {
       setState(() {});
     }
@@ -4415,9 +1995,9 @@ class _BrowserPageState extends State<BrowserPage>
       return false;
     }
 
-    final sharesCurrentSite = _urlsShareSite(requestUrl, currentUrl);
+    final sharesCurrentSite = urlsShareSite(requestUrl, currentUrl);
     final sharesPendingSite =
-        _urlsShareSite(requestUrl, tab.pendingNavigationUrl);
+        urlsShareSite(requestUrl, tab.pendingNavigationUrl);
     if ((sharesCurrentSite || sharesPendingSite) &&
         !_isLikelySubresourceHttpErrorUrl(requestUrl)) {
       return false;
@@ -4863,12 +2443,12 @@ class _BrowserPageState extends State<BrowserPage>
             const SizedBox(width: 4),
           ],
           _buildTabFavicon(tab, theme),
-          const SizedBox(width: 6),
+          const SizedBox(width: 8),
           Text(
             _tabTitleForDisplay(tab).truncate(18),
             style: TextStyle(
               fontSize: 12,
-              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+              fontWeight: FontWeight.w500,
               color: isSelected
                   ? theme.colorScheme.onSurface
                   : theme.colorScheme.onSurface.withValues(alpha: 0.6),
@@ -4906,7 +2486,7 @@ class _BrowserPageState extends State<BrowserPage>
     required Widget fallback,
   }) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(3),
+                borderRadius: BorderRadius.circular(2),
       child: Image.network(
         url,
         width: width,
@@ -4918,24 +2498,35 @@ class _BrowserPageState extends State<BrowserPage>
   }
 
   Widget _buildTabFavicon(TabData tab, ThemeData theme) {
-    final fallback = Icon(
-      Icons.public,
-      size: 15,
-      color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+    final fallback = ClipRRect(
+                borderRadius: BorderRadius.circular(2),
+      child: Image.asset(
+        'assets/icons/app_icon.png',
+        width: 15,
+        height: 15,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          return Icon(
+            Icons.public,
+            size: 15,
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+          );
+        },
+      ),
     );
     const isFlutterTest = bool.fromEnvironment('FLUTTER_TEST');
     final faviconUrl = tab.faviconUrl;
     final showFallback = faviconUrl == null || faviconUrl.trim().isEmpty;
 
     if (isIntegrationTest || isFlutterTest) {
-      if (!_tabFaviconBadgeEnabled) return fallback;
+      if (!_faviconService.tabFaviconBadgeEnabled) return fallback;
       return SizedBox(
         width: 15,
         height: 15,
         child: DecoratedBox(
           decoration: BoxDecoration(
             color: theme.colorScheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(3),
+                      borderRadius: BorderRadius.circular(2),
             border: Border.all(
               color: theme.colorScheme.outlineVariant.withValues(alpha: 0.35),
               width: 0.5,
@@ -4946,7 +2537,7 @@ class _BrowserPageState extends State<BrowserPage>
       );
     }
 
-    if (!_tabFaviconBadgeEnabled) {
+    if (!_faviconService.tabFaviconBadgeEnabled) {
       if (showFallback) return fallback;
       return faviconImage(
         url: faviconUrl,
@@ -4973,7 +2564,7 @@ class _BrowserPageState extends State<BrowserPage>
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: theme.colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(3),
+                    borderRadius: BorderRadius.circular(2),
           border: Border.all(
             color: theme.colorScheme.outlineVariant.withValues(alpha: 0.35),
             width: 0.5,
@@ -4982,187 +2573,6 @@ class _BrowserPageState extends State<BrowserPage>
         child: Center(child: content),
       ),
     );
-  }
-
-  String? _defaultFaviconUrlFor(String url) {
-    final uri = Uri.tryParse(url);
-    if (uri == null || uri.host.isEmpty) return null;
-    if (uri.scheme != 'http' && uri.scheme != 'https') return null;
-    return Uri.https(
-      'www.google.com',
-      '/s2/favicons',
-      <String, String>{
-        'domain_url': '${uri.scheme}://${uri.host}',
-        'sz': '64',
-      },
-    ).toString();
-  }
-
-  String? _hostFaviconIcoUrlFor(String url) {
-    final uri = Uri.tryParse(url);
-    if (uri == null || uri.host.isEmpty) return null;
-    if (uri.scheme != 'http' && uri.scheme != 'https') return null;
-    return uri.replace(path: '/favicon.ico', queryParameters: null).toString();
-  }
-
-  String? _cachedFaviconForUrl(String url) {
-    final host = _hostFromUrl(url);
-    if (host == null || host.isEmpty) return null;
-    final cached = _faviconCacheByHost[host];
-    return (cached == null || cached.isEmpty) ? null : cached;
-  }
-
-  Future<bool> _isSafeFaviconUrl(String url) async {
-    final normalized = url.trim();
-    final uri = Uri.tryParse(normalized);
-    final host = uri?.host.toLowerCase() ?? '';
-    if (host.isNotEmpty) {
-      final cached = _faviconHostSafetyCache[host];
-      if (cached == false) return false;
-    }
-    final safe = await FaviconUrlPolicy.isSafeFaviconUrlWithDns(normalized);
-    if (host.isNotEmpty && !safe) {
-      _faviconHostSafetyCache[host] = false;
-    }
-    return safe;
-  }
-
-  Future<bool> _faviconUrlReturns200(String url) async {
-    try {
-      final client = HttpClient();
-      client.autoUncompress = true;
-      final request = await client.headUrl(Uri.parse(url));
-      final response = await request.close();
-      await response.drain<void>();
-      return response.statusCode == 200;
-    } catch (_) {
-      return false;
-    }
-  }
-
-  Future<bool> _isSafeAndRenderableFaviconUrl(String url) async {
-    final normalized = url.trim().toLowerCase();
-    if (normalized.isEmpty) return false;
-    if (!FaviconUrlPolicy.isLikelyRenderableFaviconUrl(normalized)) {
-      return false;
-    }
-    return _isSafeFaviconUrl(normalized);
-  }
-
-  Future<void> _updateTabFavicon(TabData tab) async {
-    final controller = tab.webViewController;
-    if (controller == null || tab.isClosed) return;
-    final sourceUrl = tab.currentUrl;
-    final host = _hostFromUrl(sourceUrl);
-    if (host != null) {
-      final cached = _faviconCacheByHost[host];
-      if (cached != null && cached.isNotEmpty) {
-        if (cached != tab.faviconUrl && mounted && !tab.isClosed) {
-          setState(() {
-            tab.faviconUrl = cached;
-          });
-        }
-        return;
-      }
-    }
-
-    String? resolvedFavicon;
-    try {
-      final result = await controller.runJavaScriptReturningResult('''
-(() => {
-  const toAbs = (href) => {
-    try { return new URL(href, window.location.href).href; } catch (_) { return null; }
-  };
-  const relScore = (rel) => {
-    if (rel === 'icon' || rel === 'shortcut icon') return 0; // Primary favicon rel
-    if (rel.includes('apple-touch-icon')) return 1; // High-quality fallback icon
-    if (rel.includes('icon')) return 2; // Other icon rel variants
-    return 9; // Lowest priority / unknown rel
-  };
-  const extScore = (href) => {
-    const h = href.toLowerCase();
-    if (h.endsWith('.ico')) return 0; // Best compatibility for favicon rendering
-    if (h.endsWith('.png')) return 1; // Preferred raster fallback
-    if (h.endsWith('.jpg') || h.endsWith('.jpeg')) return 2; // Acceptable raster fallback
-    if (h.endsWith('.gif') || h.endsWith('.webp')) return 3; // Lower priority raster types
-    if (h.endsWith('.svg')) return 9; // Lowest priority (often not renderable in tab favicon path)
-    return 4; // Unknown extension
-  };
-
-  const links = Array.from(document.querySelectorAll('link[rel][href]'));
-  const candidates = links
-    .map((link) => {
-      const rel = (link.getAttribute('rel') || '').toLowerCase().trim();
-      const href = (link.getAttribute('href') || '').trim();
-      if (!href || href.startsWith('data:')) return null;
-      if (rel.includes('mask-icon')) return null;
-      if (!rel.includes('icon')) return null;
-      const abs = toAbs(href);
-      if (!abs) return null;
-      return { abs, rel, relOrder: relScore(rel), extOrder: extScore(abs) };
-    })
-    .filter(Boolean)
-    .sort((a, b) => {
-      if (a.extOrder !== b.extOrder) return a.extOrder - b.extOrder;
-      return a.relOrder - b.relOrder;
-    });
-
-  if (candidates.length > 0) return candidates[0].abs;
-  return null;
-})();
-''');
-      resolvedFavicon = FaviconUrlPolicy.resolveFaviconFromJsResult(result);
-    } catch (_) {
-      // Best effort only.
-    }
-    if (tab.currentUrl != sourceUrl || tab.isClosed) return;
-    resolvedFavicon ??= _hostFaviconIcoUrlFor(sourceUrl);
-    resolvedFavicon ??= _defaultFaviconUrlFor(sourceUrl);
-    final isResolvedFaviconSafeAndRenderable =
-        resolvedFavicon != null && resolvedFavicon.isNotEmpty
-            ? await _isSafeAndRenderableFaviconUrl(resolvedFavicon)
-            : false;
-    if (resolvedFavicon != null &&
-        resolvedFavicon.isNotEmpty &&
-        !isResolvedFaviconSafeAndRenderable) {
-      // Prefer the host favicon.ico when pages expose only non-renderable icons (e.g. SVG),
-      // otherwise fall back to the current working favicon or a generic resolver.
-      final hostIco = _hostFaviconIcoUrlFor(sourceUrl);
-      final hostIcoRenderable = hostIco != null && hostIco.isNotEmpty
-          ? await _isSafeAndRenderableFaviconUrl(hostIco)
-          : false;
-      resolvedFavicon = hostIcoRenderable
-          ? hostIco
-          : (tab.faviconUrl ?? _defaultFaviconUrlFor(sourceUrl));
-    }
-    final isResolvedFaviconSafe =
-        resolvedFavicon != null && resolvedFavicon.isNotEmpty
-            ? await _isSafeFaviconUrl(resolvedFavicon)
-            : false;
-    final faviconReturns200 = resolvedFavicon != null &&
-            resolvedFavicon.isNotEmpty &&
-            resolvedFavicon.contains('google.com/s2/favicons')
-        ? await _faviconUrlReturns200(resolvedFavicon)
-        : true;
-    if (resolvedFavicon != null &&
-        resolvedFavicon.isNotEmpty &&
-        isResolvedFaviconSafe &&
-        faviconReturns200 &&
-        host != null &&
-        host.isNotEmpty) {
-      _faviconCacheByHost[host] = resolvedFavicon;
-    }
-    final useResolvedFavicon = resolvedFavicon != null &&
-        resolvedFavicon.isNotEmpty &&
-        isResolvedFaviconSafe &&
-        faviconReturns200;
-    if (resolvedFavicon == null || resolvedFavicon.isEmpty) return;
-    if (resolvedFavicon == tab.faviconUrl || !mounted || tab.isClosed) return;
-    if (!useResolvedFavicon) return;
-    if (tab.currentUrl != sourceUrl) return;
-    setState(() {
-      tab.faviconUrl = resolvedFavicon;
-    });
   }
 
   Future<void> _loadReorderableTabs() async {
@@ -5177,18 +2587,6 @@ class _BrowserPageState extends State<BrowserPage>
     });
   }
 
-  Future<void> _loadTabFaviconBadgeEnabled() async {
-    final prefs = await SharedPreferences.getInstance();
-    final resolved = prefs.getBool(
-          profileManager.getScopedStorageKey(tabFaviconBadgeEnabledKey),
-        ) ??
-        false;
-    if (!mounted) return;
-    setState(() {
-      _tabFaviconBadgeEnabled = resolved;
-    });
-  }
-
   Future<void> _reloadAllSettings() async {
     if (!mounted) return;
     final prefs = await SharedPreferences.getInstance();
@@ -5197,8 +2595,7 @@ class _BrowserPageState extends State<BrowserPage>
     if (!mounted) return;
     setState(() {
       _reorderableTabs = prefs.getBool(scopedKey(reorderableTabsKey)) ?? false;
-      _tabFaviconBadgeEnabled =
-          prefs.getBool(scopedKey(tabFaviconBadgeEnabledKey)) ?? false;
+      _faviconService.reloadSettings(prefs, scopedKey);
     });
   }
 
@@ -5217,7 +2614,7 @@ class _BrowserPageState extends State<BrowserPage>
         state == AppLifecycleState.paused ||
         state == AppLifecycleState.detached) {
       _saveBookmarks();
-      _saveHistory();
+      _historyService.saveHistory(privateBrowsing: widget.privateBrowsing);
     }
   }
 
@@ -5243,7 +2640,7 @@ class _BrowserPageState extends State<BrowserPage>
     }
     tabController.dispose();
     _saveBookmarks();
-    _saveHistory();
+    _historyService.saveHistory(privateBrowsing: widget.privateBrowsing);
     super.dispose();
   }
 
@@ -5291,157 +2688,25 @@ class _BrowserPageState extends State<BrowserPage>
     await prefs.setString(bookmarksKey, data);
   }
 
-  Future<void> _loadHistory() async {
-    if (widget.privateBrowsing) return;
-    final historyKey = profileManager.historyKey;
-    final prefs = await SharedPreferences.getInstance();
-    if (profileManager.historyKey != historyKey) return;
-    final historyJson = prefs.getString(historyKey);
-    if (historyJson == null || historyJson.trim().isEmpty) {
-      return;
-    }
-    try {
-      final decoded = jsonDecode(historyJson);
-      if (decoded is! List) return;
-      _history
-        ..clear()
-        ..addAll(decoded.whereType<String>());
-      if (_history.length > _maxHistoryEntries) {
-        _history.removeRange(0, _history.length - _maxHistoryEntries);
-      }
-    } catch (e, s) {
-      logger.w('Failed to load browsing history', error: e, stackTrace: s);
-    }
-    if (widget.advancedCacheEnabled) {
-      _prewarmNavigationCache();
-    }
-  }
-
-  Future<void> _saveHistory() async {
-    if (widget.privateBrowsing) return;
-    final historyKey = profileManager.historyKey;
-    final data = jsonEncode(List<String>.from(_history));
-    _historySaveQueue = _historySaveQueue.then((_) async {
-      try {
-        final prefs = await SharedPreferences.getInstance();
-        if (profileManager.historyKey != historyKey) return;
-        await prefs.setString(historyKey, data);
-      } catch (e, s) {
-        logger.w('Failed to save browsing history', error: e, stackTrace: s);
-      }
-    });
-    return _historySaveQueue;
-  }
-
   void _onProfileChanged() {
     if (!mounted) return;
     bookmarkManager.clear();
-    _history.clear();
-    _navigationCacheIndex.clear();
+    _historyService.clearAll();
     _siteFontFamilies.clear();
     _loadBookmarks();
-    _loadHistory();
+    _historyService.loadHistory(
+      privateBrowsing: widget.privateBrowsing,
+      advancedCacheEnabled: widget.advancedCacheEnabled,
+      getUserAgent: (url) => _getUserAgent(widget.useModernUserAgent),
+    );
     unawaited(_loadReorderableTabs());
     unawaited(_loadFontOverrides());
-    unawaited(_loadNavigationCacheIndex());
+    unawaited(_historyService.loadNavigationCacheIndex(
+      privateBrowsing: widget.privateBrowsing,
+      advancedCacheEnabled: widget.advancedCacheEnabled,
+      getUserAgent: (url) => _getUserAgent(widget.useModernUserAgent),
+    ));
     setState(() {});
-  }
-
-  void _recordHistory(TabData tab, String url) {
-    if (widget.privateBrowsing || url.isEmpty) return;
-
-    if (tab.history.isEmpty || tab.history.last != url) {
-      tab.history.add(url);
-      if (tab.history.length > _maxTabHistoryEntries) {
-        tab.history.removeAt(0);
-      }
-    }
-
-    if (_history.isEmpty || _history.last != url) {
-      _history.add(url);
-      if (_history.length > _maxHistoryEntries) {
-        _history.removeAt(0);
-      }
-      _saveHistory();
-    }
-
-    if (widget.advancedCacheEnabled) {
-      _recordNavigationCache(url);
-    }
-  }
-
-  Future<void> _loadNavigationCacheIndex() async {
-    if (widget.privateBrowsing) return;
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(
-      profileManager.getScopedStorageKey(navigationCacheIndexKey),
-    );
-    if (raw == null || raw.trim().isEmpty) return;
-    try {
-      final decoded = jsonDecode(raw);
-      if (decoded is! Map<String, dynamic>) return;
-      _navigationCacheIndex
-        ..clear()
-        ..addEntries(
-          decoded.entries.where((entry) => entry.key.trim().isNotEmpty).map(
-              (entry) => MapEntry(entry.key, (entry.value as num).toInt())),
-        );
-      if (widget.advancedCacheEnabled) {
-        _prewarmNavigationCache();
-      }
-    } catch (e, s) {
-      logger.w('Failed to load navigation cache index',
-          error: e, stackTrace: s);
-    }
-  }
-
-  Future<void> _saveNavigationCacheIndex() async {
-    if (widget.privateBrowsing) return;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(
-      profileManager.getScopedStorageKey(navigationCacheIndexKey),
-      jsonEncode(_navigationCacheIndex),
-    );
-  }
-
-  void _recordNavigationCache(String url) {
-    final uri = Uri.tryParse(url);
-    if (uri == null || (uri.scheme != 'http' && uri.scheme != 'https')) return;
-    _navigationCacheIndex[url] = DateTime.now().millisecondsSinceEpoch;
-    if (_navigationCacheIndex.length > _maxNavigationCacheEntries) {
-      final oldest = _navigationCacheIndex.entries.toList()
-        ..sort((a, b) => a.value.compareTo(b.value));
-      final overflow =
-          _navigationCacheIndex.length - _maxNavigationCacheEntries;
-      for (var i = 0; i < overflow; i++) {
-        _navigationCacheIndex.remove(oldest[i].key);
-      }
-    }
-    _saveNavigationCacheIndex();
-  }
-
-  Future<void> _prewarmNavigationCache() async {
-    if (!widget.advancedCacheEnabled || widget.privateBrowsing) return;
-    final recent = _navigationCacheIndex.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-    final targets = recent
-        .map((e) => e.key)
-        .where((url) {
-          final uri = Uri.tryParse(url);
-          return uri != null && (uri.scheme == 'http' || uri.scheme == 'https');
-        })
-        .take(_navigationCachePrewarmCount)
-        .toList();
-    for (final url in targets) {
-      try {
-        final uri = Uri.parse(url);
-        await http.head(uri, headers: {
-          'User-Agent': _getUserAgent(widget.useModernUserAgent)
-        }).timeout(_navigationCachePrewarmTimeout);
-      } catch (_) {
-        // Best effort prewarm only.
-      }
-    }
   }
 
   void _handleLoadError(TabData tab, String newErrorMessage) {
@@ -5546,7 +2811,7 @@ class _BrowserPageState extends State<BrowserPage>
                 offset: homeDisplayUrl.length,
               ),
             );
-            activeTab.faviconUrl = _defaultFaviconUrlFor(widget.initialUrl);
+            activeTab.faviconUrl = _faviconService.defaultFaviconUrlFor(widget.initialUrl);
             activeTab.webViewController = null;
             activeTab.hideStaleWebViewUntilPageFinish = false;
             activeTab.state = BrowserState.success(widget.initialUrl);
@@ -5575,7 +2840,7 @@ class _BrowserPageState extends State<BrowserPage>
                 offset: homeDisplayUrl.length,
               ),
             );
-            activeTab.faviconUrl = _defaultFaviconUrlFor(widget.initialUrl);
+            activeTab.faviconUrl = _faviconService.defaultFaviconUrlFor(widget.initialUrl);
             activeTab.webViewController = null;
             activeTab.hideStaleWebViewUntilPageFinish = false;
             activeTab.state = BrowserState.success(widget.initialUrl);
@@ -5814,11 +3079,9 @@ class _BrowserPageState extends State<BrowserPage>
       await cookieManager.clearCookies();
       for (final tab in tabs) {
         await tab.webViewController?.clearCache();
-        await tab.webViewController?.runJavaScript(
-          'localStorage.clear(); sessionStorage.clear(); true;',
-        );
+        await tab.webViewController?.runJavaScript(clearStorageScript);
       }
-      _navigationCacheIndex.clear();
+      _historyService.navigationCacheIndex.clear();
       final prefs = await SharedPreferences.getInstance();
       await prefs
           .remove(profileManager.getScopedStorageKey(navigationCacheIndexKey));
@@ -5920,7 +3183,7 @@ class _BrowserPageState extends State<BrowserPage>
         barrierDismissible: true,
         barrierLabel: 'Settings',
         barrierColor: _ambientActive ? Colors.transparent : Colors.black54,
-        transitionDuration: const Duration(milliseconds: 200),
+        transitionDuration: const Duration(milliseconds: 150),
         pageBuilder: (context, animation, secondaryAnimation) {
           final theme = Theme.of(context);
           return Align(
@@ -5950,21 +3213,27 @@ class _BrowserPageState extends State<BrowserPage>
                 ambientToolbarEnabled: widget.ambientToolbarEnabled,
                 autoHideAddressBarEnabled: widget.autoHideAddressBarEnabled,
                 onOpenHelp: () => _loadUrl(
-                    'https://bniladridas.github.io/browser/features.html'),
+                    'https://Palmshed.github.io/browser/features.html'),
               ),
             ),
           );
         },
         transitionBuilder: (context, animation, secondaryAnimation, child) {
-          return SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(1.0, 0.0),
-              end: Offset.zero,
-            ).animate(CurvedAnimation(
+          return FadeTransition(
+            opacity: CurvedAnimation(
               parent: animation,
               curve: Curves.easeOut,
-            )),
-            child: child,
+            ),
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(1.0, 0.0),
+                end: Offset.zero,
+              ).animate(CurvedAnimation(
+                parent: animation,
+                curve: Curves.easeOut,
+              )),
+              child: child,
+            ),
           );
         },
       ),
@@ -5979,7 +3248,7 @@ class _BrowserPageState extends State<BrowserPage>
     final noHoverOverlay = WidgetStateProperty.resolveWith<Color?>((states) {
       return states.contains(WidgetState.hovered) ? Colors.transparent : null;
     });
-    final currentHost = _hostFromUrl(activeTab.currentUrl);
+    final currentHost = _faviconService.hostFromUrl(activeTab.currentUrl);
     final hasSiteRule =
         currentHost != null && _siteFontFamilies.containsKey(currentHost);
     var applyToCurrentSite = hasSiteRule;
@@ -6243,159 +3512,47 @@ class _BrowserPageState extends State<BrowserPage>
           await _showWithModalInteractionBlock<void>(widget.onShowWhatsNew!);
         }
         break;
+      case 'onion_directory':
+        _loadUrl('https://www.torry.io/learn/directory/');
+        break;
+      case 'anonymous_view':
+        _loadUrl('https://www.torry.io/anonymous-view/');
+        break;
     }
   }
 
-  Widget _buildMenuItem(
-    BuildContext context, {
-    required String value,
-    required IconData icon,
-    required String label,
-  }) {
-    final theme = Theme.of(context);
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) {
-        _isOverflowMenuHovered = true;
-        _cancelOverflowMenuClose();
-      },
-      onExit: (_) {
-        _isOverflowMenuHovered = false;
-        _scheduleOverflowMenuClose();
-      },
-      child: GestureDetector(
-        onTap: () {
-          _overflowMenuController.close();
-          unawaited(_handleMenuSelection(value));
-        },
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          child: Row(
-            children: [
-              Icon(icon, size: 16, color: theme.colorScheme.onSurfaceVariant),
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  List<Widget> _buildMenuEntries(BuildContext context) {
-    return [
-      _buildMenuItem(
-        context,
-        value: 'add_bookmark',
-        icon: Icons.bookmark_add,
-        label: 'Add Bookmark',
-      ),
-      _buildMenuItem(
-        context,
-        value: 'view_bookmarks',
-        icon: Icons.bookmarks,
-        label: 'Bookmarks',
-      ),
-      _buildMenuItem(
-        context,
-        value: 'history',
-        icon: Icons.history,
-        label: 'History',
-      ),
-      if (widget.aiAvailable)
-        _buildMenuItem(
-          context,
-          value: 'ai_chat',
-          icon: Icons.smart_toy,
-          label: 'AI Chat',
-        ),
-      _buildMenuItem(
-        context,
-        value: 'page_font',
-        icon: Icons.font_download,
-        label: 'Page Font',
-      ),
-      _buildMenuItem(
-        context,
-        value: 'settings',
-        icon: Icons.settings,
-        label: 'Settings',
-      ),
-      _buildMenuItem(
-        context,
-        value: 'whats_new',
-        icon: Icons.new_releases_outlined,
-        label: "What's New",
-      ),
-      _buildMenuItem(
-        context,
-        value: 'network_debug',
-        icon: Icons.network_check,
-        label: 'Network Debug',
-      ),
-    ];
-  }
-
   Widget _buildMenuButton({
-    double iconSize = 24,
+    double iconSize = 20,
     EdgeInsetsGeometry padding = const EdgeInsets.all(8),
   }) {
-    return MenuAnchor(
+    return BrowserOverflowMenu(
       controller: _overflowMenuController,
-      consumeOutsideTap: true,
-      style: MenuStyle(
-        shape: WidgetStatePropertyAll(
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        ),
-        minimumSize: const WidgetStatePropertyAll(Size(180, 0)),
-        padding: const WidgetStatePropertyAll(
-          EdgeInsets.symmetric(vertical: 4),
-        ),
-      ),
-      onClose: () {
-        _isOverflowMenuHovered = false;
-        _isOverflowTriggerHovered = false;
-        _cancelOverflowMenuClose();
-        _setOverflowMenuOpen(false);
+      aiAvailable: widget.aiAvailable,
+      menuOpen: _overflowMenuOpen,
+      iconSize: iconSize,
+      padding: padding,
+      onOpenChanged: (open) {
+        _setOverflowMenuOpen(open);
       },
-      menuChildren: _buildMenuEntries(context),
-      builder: (context, controller, child) {
-        return MouseRegion(
-          onEnter: (_) {
-            _isOverflowTriggerHovered = true;
-            _cancelOverflowMenuClose();
-          },
-          onExit: (_) {
-            _isOverflowTriggerHovered = false;
-            _scheduleOverflowMenuClose();
-          },
-          child: MouseRegion(
-            cursor: SystemMouseCursors.click,
-            child: GestureDetector(
-              onTap: () {
-                if (controller.isOpen) {
-                  controller.close();
-                  _setOverflowMenuOpen(false);
-                  return;
-                }
-                controller.open();
-                _setOverflowMenuOpen(true);
-              },
-              child: Padding(
-                padding: padding,
-                child: Icon(Icons.more_vert,
-                    size: iconSize,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant),
-              ),
-            ),
-          ),
-        );
+      onSelection: (value) async {
+        _overflowMenuController.close();
+        await _handleMenuSelection(value);
+      },
+      onTriggerHoverChanged: (hovered) {
+        _isOverflowTriggerHovered = hovered;
+        if (hovered) {
+          _cancelOverflowMenuClose();
+        } else {
+          _scheduleOverflowMenuClose();
+        }
+      },
+      onMenuHoverChanged: (hovered) {
+        _isOverflowMenuHovered = hovered;
+        if (hovered) {
+          _cancelOverflowMenuClose();
+        } else {
+          _scheduleOverflowMenuClose();
+        }
       },
     );
   }
@@ -6432,12 +3589,12 @@ class _BrowserPageState extends State<BrowserPage>
         barrierColor: _ambientActive
             ? Theme.of(context).colorScheme.surface.withValues(alpha: 0.16)
             : Colors.black54,
-        transitionDuration: const Duration(milliseconds: 200),
+        transitionDuration: const Duration(milliseconds: 150),
         transitionBuilder: (context, animation, secondaryAnimation, child) {
           final curved = CurvedAnimation(
             parent: animation,
-            curve: Curves.easeOutCubic,
-            reverseCurve: Curves.easeInCubic,
+            curve: Curves.easeOut,
+            reverseCurve: Curves.easeIn,
           );
           return FadeTransition(
             opacity: curved,
@@ -6655,7 +3812,7 @@ class _BrowserPageState extends State<BrowserPage>
       );
       return;
     }
-    final history = _history;
+    final history = _historyService.history;
     await _showWithModalInteractionBlock<void>(
       () => showDialog(
         context: context,
@@ -6712,7 +3869,7 @@ class _BrowserPageState extends State<BrowserPage>
                                         }
                                       });
                                       setDialogState(() {});
-                                      _saveHistory();
+                                      _historyService.saveHistory(privateBrowsing: widget.privateBrowsing);
                                     },
                                     child: Padding(
                                       padding: const EdgeInsets.all(8),
@@ -6737,7 +3894,7 @@ class _BrowserPageState extends State<BrowserPage>
                           }
                         });
                         setDialogState(() {});
-                        _saveHistory();
+                        _historyService.saveHistory(privateBrowsing: widget.privateBrowsing);
                         Navigator.of(context).pop();
                       },
                       child: const Text('Clear All'),
@@ -6754,31 +3911,6 @@ class _BrowserPageState extends State<BrowserPage>
         },
       ),
     );
-  }
-
-  Iterable<String> _historyUrlSuggestions(String rawInput) {
-    final query = rawInput.trim().toLowerCase();
-    if (query.isEmpty) return const <String>[];
-
-    final seen = <String>{};
-    final matches = <String>[];
-    for (final url in _history.reversed) {
-      final normalized = url.trim();
-      if (normalized.isEmpty) continue;
-      final lower = normalized.toLowerCase();
-      if (!lower.contains(query)) continue;
-      if (!seen.add(lower)) continue;
-      matches.add(normalized);
-      if (matches.length >= 8) break;
-    }
-
-    matches.sort((a, b) {
-      final aStarts = a.toLowerCase().startsWith(query);
-      final bStarts = b.toLowerCase().startsWith(query);
-      if (aStarts != bStarts) return aStarts ? -1 : 1;
-      return a.length.compareTo(b.length);
-    });
-    return matches;
   }
 
   Future<void> _showQuickUrlPrompt() async {
@@ -6906,7 +4038,7 @@ class _BrowserPageState extends State<BrowserPage>
             activeTab.pendingNavigationUrl = null;
             activeTab.pendingNavigationSourceUrl = null;
             activeTab.urlController.text = _displayUrl(url);
-            activeTab.faviconUrl = _defaultFaviconUrlFor(url);
+            activeTab.faviconUrl = _faviconService.defaultFaviconUrlFor(url);
             activeTab.webViewController = null;
             activeTab.state = BrowserState.success(url);
           });
@@ -6936,19 +4068,37 @@ class _BrowserPageState extends State<BrowserPage>
       return;
     }
     final previousUrl = activeTab.currentUrl;
-    if (wasOnHome) {
-      activeTab.homeLaunchedSiteFamily = _siteFamilyKeyForUrl(processedUrl);
+    if (mounted) {
+      setState(() {
+        if (wasOnHome) {
+          activeTab.homeLaunchedSiteFamily = siteFamilyKeyForUrl(processedUrl);
+        }
+        activeTab.pendingNavigationUrl = processedUrl;
+        activeTab.pendingNavigationSourceUrl = previousUrl;
+        activeTab.currentUrl = processedUrl;
+        activeTab.pageTitle = null;
+        activeTab.isResolvingPageTitle = true;
+        activeTab.urlController.text = _displayUrl(processedUrl);
+        activeTab.faviconUrl = _faviconService.cachedFaviconForUrl(processedUrl);
+        activeTab.hideStaleWebViewUntilPageFinish = wasOnHome;
+      });
     }
-    activeTab.pendingNavigationUrl = processedUrl;
-    activeTab.pendingNavigationSourceUrl = previousUrl;
-    activeTab.currentUrl = processedUrl;
-    activeTab.pageTitle = null;
-    activeTab.isResolvingPageTitle = true;
-    activeTab.urlController.text = _displayUrl(processedUrl);
-    activeTab.faviconUrl = _cachedFaviconForUrl(processedUrl);
-    activeTab.hideStaleWebViewUntilPageFinish = wasOnHome;
-    if (activeTab.webViewController == null && mounted) {
-      setState(() {});
+    if ((activeTab.webViewController == null || wasOnHome) && mounted) {
+      // Schedule navigation after the frame that creates/mounts the WebView
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted || activeTab.isClosed ||
+              activeTab.webViewController == null) {
+            return;
+          }
+          unawaited(() async {
+            await _configurePlatformSpecificWebView(activeTab);
+            if (!mounted || activeTab.isClosed) return;
+            await _loadInitialRequestForTab(activeTab);
+          }());
+        });
+      });
+      return;
     }
     try {
       if (processedUrl.startsWith('file:///') ||
@@ -6986,163 +4136,17 @@ class _BrowserPageState extends State<BrowserPage>
     await controller.loadFile(path);
   }
 
-  void _performTorrySearch(TabData tab, [String? text]) {
-    final query = (text ?? tab.torrySearchController.text).trim();
-    if (query.isEmpty) {
-      tab.torrySearchFocusNode.requestFocus();
-      return;
-    }
-    final targetUrl =
-        'https://www.torry.io/search/?q=${Uri.encodeQueryComponent(query)}';
-    _loadUrl(targetUrl);
-  }
+
 
   Widget _buildTorryHomeView(TabData tab) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final useAmbient = _ambientActive;
 
-    return Container(
-      color: useAmbient
-          ? colorScheme.surface.withValues(alpha: 0.64)
-          : colorScheme.surface,
-      child: SafeArea(
-        bottom: false,
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            const horizontalPadding = 18.0;
-            const verticalPadding = 28.0;
-            final topBreathingRoom =
-                (constraints.maxHeight * 0.18).clamp(72.0, 220.0);
-
-            return SingleChildScrollView(
-              padding: EdgeInsets.fromLTRB(
-                horizontalPadding,
-                topBreathingRoom,
-                horizontalPadding,
-                verticalPadding,
-              ),
-              child: Align(
-                alignment: Alignment.topCenter,
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 560),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: colorScheme.primaryContainer,
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Icon(
-                          Icons.security,
-                          size: 36,
-                          color: colorScheme.onPrimaryContainer,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        'Private search via torry.io.',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                          fontSize: 13,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 18),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
-                        decoration: BoxDecoration(
-                          color: colorScheme.surfaceContainerHighest,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: colorScheme.outline.withValues(alpha: 0.45),
-                          ),
-                        ),
-                        child: TextField(
-                          controller: tab.torrySearchController,
-                          focusNode: tab.torrySearchFocusNode,
-                          textInputAction: TextInputAction.search,
-                          textAlignVertical: TextAlignVertical.center,
-                          style: theme.textTheme.bodyMedium
-                              ?.copyWith(fontSize: 13),
-                          onSubmitted: (s) => _performTorrySearch(tab, s),
-                          decoration: InputDecoration(
-                            hintText: 'Search',
-                            isDense: true,
-                            border: InputBorder.none,
-                            contentPadding:
-                                const EdgeInsets.symmetric(vertical: 10),
-                            prefixIcon: Icon(
-                              Icons.search,
-                              color: colorScheme.primary,
-                              size: 18,
-                            ),
-                            prefixIconConstraints: const BoxConstraints(
-                              minHeight: 36,
-                              minWidth: 42,
-                            ),
-                            suffixIcon: MouseRegion(
-                              cursor: SystemMouseCursors.click,
-                              child: GestureDetector(
-                                onTap: () => _performTorrySearch(tab),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(8),
-                                  child: Icon(
-                                    Icons.arrow_forward,
-                                    color: colorScheme.primary,
-                                    size: 22,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      Wrap(
-                        spacing: 10,
-                        runSpacing: 8,
-                        alignment: WrapAlignment.center,
-                        children: [
-                          TextButton.icon(
-                            onPressed: () => _loadUrl(
-                              'https://www.torry.io/learn/directory/',
-                            ),
-                            icon: const Icon(Icons.list),
-                            label: const Text(
-                              'Onion directory',
-                              style: TextStyle(fontSize: 12),
-                            ),
-                            style: TextButton.styleFrom(
-                              visualDensity: VisualDensity.compact,
-                            ),
-                          ),
-                          TextButton.icon(
-                            onPressed: () => _loadUrl(
-                              'https://www.torry.io/anonymous-view/',
-                            ),
-                            icon: const Icon(Icons.visibility),
-                            label: const Text(
-                              'Anonymous view',
-                              style: TextStyle(fontSize: 12),
-                            ),
-                            style: TextButton.styleFrom(
-                              visualDensity: VisualDensity.compact,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          },
-        ),
-      ),
+    return TorryHomeView(
+      theme: theme,
+      colorScheme: colorScheme,
+      useAmbient: useAmbient,
     );
   }
 
@@ -7176,7 +4180,7 @@ class _BrowserPageState extends State<BrowserPage>
             ),
             const SizedBox(height: 12),
             Text(
-              'Browser',
+              'Via',
               style: theme.textTheme.titleLarge?.copyWith(
                 color: colorScheme.primary,
                 fontWeight: FontWeight.w700,
@@ -7322,7 +4326,13 @@ class _BrowserPageState extends State<BrowserPage>
           );
           return;
         }
-        _recordHistory(tab, url);
+        _historyService.recordHistory(
+          tab,
+          url,
+          privateBrowsing: widget.privateBrowsing,
+          advancedCacheEnabled: widget.advancedCacheEnabled,
+          getUserAgent: (url) => _getUserAgent(widget.useModernUserAgent),
+        );
         // Update the URL bar for SPA navigation
         if (!tab.isClosed && mounted) {
           setState(() {
@@ -7470,7 +4480,7 @@ class _BrowserPageState extends State<BrowserPage>
             setState(() {
               tab.currentUrl = actualUrl;
               tab.urlController.text = actualUrl;
-              if (_urlsShareSite(actualUrl, tab.pendingNavigationUrl)) {
+              if (urlsShareSite(actualUrl, tab.pendingNavigationUrl)) {
                 tab.pendingNavigationUrl = null;
                 tab.pendingNavigationSourceUrl = null;
               }
@@ -7505,8 +4515,14 @@ class _BrowserPageState extends State<BrowserPage>
             tab.detectedSeedColor = null;
             tab.ambientSeedColor = null;
             tab.lastAmbientProbeAt = null;
-            tab.faviconUrl = _cachedFaviconForUrl(actualUrl);
-            _recordHistory(tab, tab.currentUrl);
+            tab.faviconUrl = _faviconService.cachedFaviconForUrl(actualUrl);
+                _historyService.recordHistory(
+              tab,
+              tab.currentUrl,
+              privateBrowsing: widget.privateBrowsing,
+              advancedCacheEnabled: widget.advancedCacheEnabled,
+              getUserAgent: (url) => _getUserAgent(widget.useModernUserAgent),
+            );
           });
           _syncPagePointerEvents(tab);
           _ensurePageTapListenerInstalled(tab);
@@ -7541,75 +4557,7 @@ class _BrowserPageState extends State<BrowserPage>
           }
           // Add listeners for SPA navigations: popstate, pushState, replaceState
           if (_isLiveTab(tab) && tab.webViewController != null) {
-            tab.webViewController!.runJavaScript('''
-            if (!window.historyListenerAdded) {
-              const postHistoryUpdate = function() {
-                HistoryChannel.postMessage(JSON.stringify({
-                  url: window.location.href,
-                  title: document.title || ''
-                }));
-              };
-              const postTitleUpdate = function() {
-                TitleChangeChannel.postMessage(JSON.stringify({
-                  url: window.location.href,
-                  title: document.title || ''
-                }));
-              };
-              const scheduleHistoryUpdate = function() {
-                postHistoryUpdate();
-                setTimeout(postTitleUpdate, 0);
-                requestAnimationFrame(postTitleUpdate);
-                setTimeout(postTitleUpdate, 150);
-              };
-              window.addEventListener('popstate', function(event) {
-                scheduleHistoryUpdate();
-              });
-              // Override pushState and replaceState to capture programmatic changes
-              window.originalPushState = window.history.pushState;
-              window.history.pushState = function(state, title, url) {
-                window.originalPushState.call(this, state, title, url);
-                scheduleHistoryUpdate();
-              };
-              window.originalReplaceState = window.history.replaceState;
-              window.history.replaceState = function(state, title, url) {
-                window.originalReplaceState.call(this, state, title, url);
-                scheduleHistoryUpdate();
-              };
-              const titleTarget = document.querySelector('title') || document.head;
-              if (titleTarget && !window.titleObserverAdded) {
-                new MutationObserver(function() {
-                  postTitleUpdate();
-                }).observe(titleTarget, {
-                  childList: true,
-                  subtree: true,
-                  characterData: true,
-                });
-                window.titleObserverAdded = true;
-              }
-              postTitleUpdate();
-              window.historyListenerAdded = true;
-            }
-            if (!window.pageTapListenerAdded) {
-              const notifyTap = function() {
-                try { PageTapChannel.postMessage('tap'); } catch (_) {}
-              };
-              window.addEventListener('pointerdown', notifyTap, true);
-              window.pageTapListenerAdded = true;
-            }
-            if (!window.scrollOffsetListenerAdded) {
-              let lastScrollOffset = 0;
-              const notifyScroll = function() {
-                const offset = window.pageYOffset || document.documentElement.scrollTop || 0;
-                if (Math.abs(offset - lastScrollOffset) > 5) {
-                  lastScrollOffset = offset;
-                  try { ScrollOffsetChannel.postMessage(String(offset)); } catch (_) {}
-                }
-              };
-              window.addEventListener('scroll', notifyScroll, { passive: true });
-              window.scrollOffsetListenerAdded = true;
-            }
-            true;
-          ''');
+            tab.webViewController!.runJavaScript(spaNavigationScript);
             unawaited(_installFullscreenBridge(tab));
             // Inject login detection script
             tab.webViewController!.runJavaScript(loginDetectionScript);
@@ -7617,7 +4565,7 @@ class _BrowserPageState extends State<BrowserPage>
             tab.webViewController!.runJavaScript(webAuthnScript);
             _applyLegacyLayoutFix(tab);
             _applyFontOverride(tab);
-            _updateTabFavicon(tab);
+            _faviconService.updateTabFavicon(tab, mounted: mounted, setState: setState);
             // Attempt autofill if credentials available
             _attemptAutofill(tab);
           }
@@ -7686,11 +4634,13 @@ class _BrowserPageState extends State<BrowserPage>
         },
       ));
       _syncPagePointerEvents(tab);
-      unawaited(() async {
-        await _configurePlatformSpecificWebView(tab);
-        if (!mounted || tab.isClosed) return;
-        await _loadInitialRequestForTab(tab);
-      }());
+      if (tab.pendingNavigationUrl == null) {
+        unawaited(() async {
+          await _configurePlatformSpecificWebView(tab);
+          if (!mounted || tab.isClosed) return;
+          await _loadInitialRequestForTab(tab);
+        }());
+      }
     }
 
     try {
@@ -7704,15 +4654,30 @@ class _BrowserPageState extends State<BrowserPage>
                   color: Theme.of(context).colorScheme.surface,
                 ),
               ),
-            if (tab.state is Loading && !_modalInteractionBlockOpen)
-              Positioned(
+            Positioned(
                 top: 0,
                 left: 0,
                 right: 0,
-                child: LinearProgressIndicator(
-                  minHeight: 2,
-                  backgroundColor: Colors.transparent,
-                  color: Theme.of(context).colorScheme.primary,
+                child: AnimatedOpacity(
+                  opacity: tab.state is Loading && !_modalInteractionBlockOpen
+                      ? 1.0
+                      : 0.0,
+                  duration: const Duration(milliseconds: 200),
+                  child: TweenAnimationBuilder<double>(
+                    key: ObjectKey(tab),
+                    tween: Tween(begin: 0.25, end: 1.0),
+                    duration: const Duration(milliseconds: 2000),
+                    curve: Curves.easeOut,
+                    builder: (context, value, child) {
+                      return LinearProgressIndicator(
+                        value: value,
+                        minHeight: 3,
+                        backgroundColor: Colors.transparent,
+                        color: Theme.of(context).colorScheme.primary
+                            .withValues(alpha: 0.75),
+                      );
+                    },
+                  ),
                 ),
               ),
             if (tab.pendingPasswordPrompt != null && activeTab == tab)
@@ -7958,7 +4923,7 @@ class _BrowserPageState extends State<BrowserPage>
         : theme.colorScheme.onSurfaceVariant;
     final toolbarDividerColor = useAmbient
         ? Colors.transparent
-        : theme.colorScheme.outline.withValues(alpha: 0.2);
+        : theme.colorScheme.outline.withValues(alpha: 0.12);
 
     final PreferredSizeWidget? appBarWidget = widget.hideAppBar
         ? null
@@ -7990,230 +4955,96 @@ class _BrowserPageState extends State<BrowserPage>
               Container(
                 margin: const EdgeInsets.symmetric(horizontal: 2),
                 child: _buildToolbarPill(
-                  borderRadius: BorderRadius.circular(15),
+                  borderRadius: BorderRadius.circular(12),
                   tintColor: toolbarPillColor,
                   frosted: useAmbient,
                   border: null,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      ClickableIcon(
-                        icon: Icons.arrow_back_ios,
-                        size: 16,
-                        color: toolbarForeground,
-                        padding: EdgeInsets.all(isMobilePlatform ? 7 : 8),
-                        onTap: _goBack,
-                      ),
-                      ClickableIcon(
-                        icon: Icons.arrow_forward_ios,
-                        size: 16,
-                        color: toolbarForeground,
-                        padding: EdgeInsets.all(isMobilePlatform ? 7 : 8),
-                        onTap: _goForward,
-                      ),
-                    ],
+                  child: BrowserNavigationControls(
+                    toolbarForeground: toolbarForeground,
+                    isMobilePlatform: isMobilePlatform,
+                    onBackTap: _goBack,
+                    onForwardTap: _goForward,
+                    onHomeTap: () {},
                   ),
                 ),
               ),
+              const SizedBox(width: 6),
               ClickableIcon(
                 icon: Icons.add,
-                size: 22,
+                size: 20,
                 color: toolbarForeground,
                 padding: EdgeInsets.all(isMobilePlatform ? 7 : 8),
                 onTap: _addNewTab,
               ),
+              const SizedBox(width: 4),
               _buildMenuButton(
                 padding: EdgeInsets.all(isMobilePlatform ? 7 : 8),
               ),
+              const SizedBox(width: 4),
             ],
             title: Container(
-              margin: EdgeInsets.only(left: addressBarLeftOffset),
+              margin: EdgeInsets.only(left: addressBarLeftOffset, right: 4),
               child: _buildToolbarPill(
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(16),
                 tintColor: addressPillColor,
                 frosted: useAmbient,
                 border: null,
-                child: Row(
-                  children: [
-                    SizedBox(width: leadingInset),
-                    MouseRegion(
-                      cursor: SystemMouseCursors.click,
-                      child: GestureDetector(
-                        onTap: () {
-                          final text = activeTab.urlController.text;
-                          final decision = resolveUrlSubmission(
-                            submittedValue: text,
-                            aiSearchSuggestionsEnabled:
-                                widget.aiSearchSuggestionsEnabled,
-                          );
-                          if (decision.shouldShowAiSuggestions) {
-                            _showAiSearchSuggestionsSheet();
-                          }
-                          if (decision.shouldLoadUrl) {
-                            _removeUrlAutocompleteOverlay();
-                            activeTab.urlFocusNode.unfocus();
-                            _loadUrl(decision.normalizedInput);
-                          }
-                        },
-                        child: Icon(
-                          Icons.search,
-                          color: toolbarForeground,
-                          size: 18,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: MouseRegion(
-                        onEnter: (_) => _handleAddressBarHoverChanged(true),
-                        onExit: (_) => _handleAddressBarHoverChanged(false),
-                        child: Align(
-                          alignment: Alignment.centerLeft,
-                          child: AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 180),
-                            switchInCurve: Curves.easeOut,
-                            switchOutCurve: Curves.easeIn,
-                            transitionBuilder: (child, animation) {
-                              return FadeTransition(
-                                opacity: animation,
-                                child: SizeTransition(
-                                  sizeFactor: animation,
-                                  axis: Axis.horizontal,
-                                  // ignore: deprecated_member_use
-                                  axisAlignment: -1.0,
-                                  child: child,
-                                ),
-                              );
-                            },
-                            child: activeTab.isUrlObscured
-                                ? SizedBox(
-                                    key: const ValueKey('url_obscured'),
-                                    height: 38,
-                                    child: Align(
-                                      alignment: Alignment.centerLeft,
-                                      child: Text(
-                                        '🍎',
-                                        strutStyle: const StrutStyle(
-                                          fontSize: 14,
-                                          height: 1.0,
-                                          forceStrutHeight: true,
-                                        ),
-                                        style: TextStyle(
-                                          color: toolbarForeground,
-                                          fontSize: 14,
-                                          height: 1.0,
-                                        ),
-                                      ),
-                                    ),
-                                  )
-                                : KeyedSubtree(
-                                    key: const ValueKey('url_field'),
-                                    child: Builder(
-                                      builder: (context) {
-                                        _urlAutocompleteTargetContext = context;
-                                        return TextField(
-                                          key: const Key('browser.url_field'),
-                                          controller: activeTab.urlController,
-                                          focusNode: activeTab.urlFocusNode,
-                                          onChanged: (_) =>
-                                              _updateUrlAutocompleteOverlay(
-                                            activeTab,
-                                          ),
-                                          style: TextStyle(
-                                            color: toolbarForeground,
-                                            fontSize: 13,
-                                          ),
-                                          decoration: InputDecoration(
-                                            hintText: 'Search or enter URL',
-                                            hintStyle: TextStyle(
-                                              color: toolbarForeground
-                                                  .withValues(alpha: 0.72),
-                                              fontSize: 13,
-                                            ),
-                                            border: InputBorder.none,
-                                            contentPadding:
-                                                const EdgeInsets.symmetric(
-                                              vertical: 10,
-                                            ),
-                                          ),
-                                          onTap: () {
-                                            _cancelAddressBarAutoHide();
-                                            _setActiveTabUrlObscured(false);
-                                            if (widget
-                                                    .aiSearchSuggestionsEnabled &&
-                                                activeTab.urlController.text
-                                                    .trim()
-                                                    .isEmpty) {
-                                              _showAiSearchSuggestionsSheet();
-                                            } else {
-                                              _updateUrlAutocompleteOverlay(
-                                                activeTab,
-                                              );
-                                            }
-                                          },
-                                          onSubmitted: (value) {
-                                            _removeUrlAutocompleteOverlay();
-                                            activeTab.urlFocusNode.unfocus();
-                                            final decision =
-                                                resolveUrlSubmission(
-                                              submittedValue: value,
-                                              aiSearchSuggestionsEnabled: widget
-                                                  .aiSearchSuggestionsEnabled,
-                                            );
-                                            if (decision
-                                                .shouldShowAiSuggestions) {
-                                              _showAiSearchSuggestionsSheet();
-                                            }
-                                            if (decision.shouldLoadUrl) {
-                                              _loadUrl(
-                                                  decision.normalizedInput);
-                                            }
-                                          },
-                                        );
-                                      },
-                                    ),
-                                  ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    Padding(
-                      padding: EdgeInsets.only(right: leadingInset),
-                      child: MouseRegion(
-                        cursor: SystemMouseCursors.click,
-                        child: GestureDetector(
-                          onTap: _refresh,
-                          child: RotationTransition(
-                            turns: _refreshIconController,
-                            child: Icon(
-                              Icons.refresh,
-                              color: toolbarForeground,
-                              size: 18,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    if (activeTab.hasMediaPlaying)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: MouseRegion(
-                          cursor: SystemMouseCursors.click,
-                          child: GestureDetector(
-                            onTap: _toggleMute,
-                            child: Icon(
-                              activeTab.isMuted
-                                  ? Icons.volume_off
-                                  : Icons.volume_up,
-                              color: activeTab.isMuted
-                                  ? toolbarForeground.withValues(alpha: 0.5)
-                                  : toolbarForeground,
-                              size: 18,
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
+                child: BrowserAddressBar(
+                  tab: activeTab,
+                  toolbarForeground: toolbarForeground,
+                  leadingInset: leadingInset,
+                  aiSearchSuggestionsEnabled: widget.aiSearchSuggestionsEnabled,
+                  useAmbient: useAmbient,
+                  urlFieldLayerLink: _urlAutocompleteLayerLink,
+                  urlFieldTargetKey: _urlAutocompleteTargetKey,
+                  refreshTurns: _refreshIconController,
+                  onSearchTap: () {
+                    final text = activeTab.urlController.text;
+                    final decision = resolveUrlSubmission(
+                      submittedValue: text,
+                      aiSearchSuggestionsEnabled:
+                          widget.aiSearchSuggestionsEnabled,
+                    );
+                    if (decision.shouldShowAiSuggestions) {
+                      _showAiSearchSuggestionsSheet();
+                    }
+                    if (decision.shouldLoadUrl) {
+                      _removeUrlAutocompleteOverlay();
+                      activeTab.urlFocusNode.unfocus();
+                      _loadUrl(decision.normalizedInput);
+                    }
+                  },
+                  onRefreshTap: _refresh,
+                  onToggleMuteTap: _toggleMute,
+                  onUrlChanged: (_) => _updateUrlAutocompleteOverlay(activeTab),
+                  onUrlTap: () {
+                    _cancelAddressBarAutoHide();
+                    _setActiveTabUrlObscured(false);
+                    if (widget.aiSearchSuggestionsEnabled &&
+                        activeTab.urlController.text.trim().isEmpty) {
+                      _showAiSearchSuggestionsSheet();
+                    } else {
+                      _updateUrlAutocompleteOverlay(activeTab);
+                    }
+                  },
+                  onUrlSubmitted: (value) {
+                    _removeUrlAutocompleteOverlay();
+                    activeTab.urlFocusNode.unfocus();
+                    final decision = resolveUrlSubmission(
+                      submittedValue: value,
+                      aiSearchSuggestionsEnabled:
+                          widget.aiSearchSuggestionsEnabled,
+                    );
+                    if (decision.shouldShowAiSuggestions) {
+                      _showAiSearchSuggestionsSheet();
+                    }
+                    if (decision.shouldLoadUrl) {
+                      _loadUrl(decision.normalizedInput);
+                    }
+                  },
+                  onAddressBarHoverChanged: _handleAddressBarHoverChanged,
+                  hasMediaPlaying: activeTab.hasMediaPlaying,
+                  isMuted: activeTab.isMuted,
                 ),
               ),
             ),
@@ -8238,7 +5069,7 @@ class _BrowserPageState extends State<BrowserPage>
           Column(
             children: [
               Container(
-                height: 34,
+                height: 32,
                 width: double.infinity,
                 decoration: BoxDecoration(
                   color: useAmbient
@@ -8246,12 +5077,14 @@ class _BrowserPageState extends State<BrowserPage>
                       : Theme.of(context).colorScheme.surface,
                   border: useAmbient
                       ? null
-                      : Border(
-                          bottom: BorderSide(
-                            color: toolbarDividerColor,
-                            width: 1,
-                          ),
-                        ),
+                      : _reorderableTabs
+                          ? Border(
+                              bottom: BorderSide(
+                                color: toolbarDividerColor,
+                                width: 1,
+                              ),
+                            )
+                          : null,
                 ),
                 child: MouseRegion(
                   onEnter: (_) {
@@ -8313,6 +5146,12 @@ class _BrowserPageState extends State<BrowserPage>
                                       padding: const EdgeInsets.symmetric(
                                           horizontal: 12, vertical: 4),
                                       decoration: BoxDecoration(
+                                        color: isSelected && !_modalInteractionBlockOpen
+                                            ? Theme.of(context)
+                                                .colorScheme
+                                                .surfaceContainerHighest
+                                                .withValues(alpha: useAmbient ? 0.5 : 1.0)
+                                            : Colors.transparent,
                                         border: Border(
                                           bottom: BorderSide(
                                             color: isSelected &&
@@ -8320,9 +5159,10 @@ class _BrowserPageState extends State<BrowserPage>
                                                     !_modalInteractionBlockOpen
                                                 ? Theme.of(context)
                                                     .colorScheme
-                                                    .primary
+                                                    .onSurface
+                                                    .withValues(alpha: 0.2)
                                                 : Colors.transparent,
-                                            width: 2,
+                                            width: 1,
                                           ),
                                         ),
                                       ),
@@ -8352,7 +5192,10 @@ class _BrowserPageState extends State<BrowserPage>
                               indicatorColor: _modalInteractionBlockOpen ||
                                       widget.themeMode == AppThemeMode.adjust
                                   ? Colors.transparent
-                                  : Theme.of(context).colorScheme.primary,
+                                  : Theme.of(context)
+                                      .colorScheme
+                                      .onSurface
+                                      .withValues(alpha: 0.15),
                               dividerColor: useAmbient
                                   ? Colors.transparent
                                   : toolbarDividerColor,
@@ -8367,7 +5210,7 @@ class _BrowserPageState extends State<BrowserPage>
                                 final tab = entry.value;
                                 final isSelected = tabController.index == index;
                                 return Tab(
-                                  height: 30,
+                                  height: 28,
                                   child: _buildTabItem(tab, index, isSelected),
                                 );
                               }).toList(),
@@ -8414,61 +5257,13 @@ class _BrowserPageState extends State<BrowserPage>
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    MouseRegion(
-                      cursor: SystemMouseCursors.click,
-                      child: GestureDetector(
-                        onTap: _goBack,
-                        child: Padding(
-                          padding: const EdgeInsets.all(8),
-                          child: Icon(Icons.arrow_back_ios,
-                              size: 18,
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurfaceVariant),
-                        ),
-                      ),
-                    ),
-                    MouseRegion(
-                      cursor: SystemMouseCursors.click,
-                      child: GestureDetector(
-                        onTap: _goForward,
-                        child: Padding(
-                          padding: const EdgeInsets.all(8),
-                          child: Icon(Icons.arrow_forward_ios,
-                              size: 18,
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurfaceVariant),
-                        ),
-                      ),
-                    ),
-                    MouseRegion(
-                      cursor: SystemMouseCursors.click,
-                      child: GestureDetector(
-                        onTap: _showQuickUrlPrompt,
-                        child: Padding(
-                          padding: const EdgeInsets.all(8),
-                          child: Icon(Icons.search,
-                              size: 18,
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurfaceVariant),
-                        ),
-                      ),
-                    ),
-                    MouseRegion(
-                      cursor: SystemMouseCursors.click,
-                      child: GestureDetector(
-                        onTap: _refresh,
-                        child: Padding(
-                          padding: const EdgeInsets.all(8),
-                          child: Icon(Icons.refresh,
-                              size: 18,
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurfaceVariant),
-                        ),
-                      ),
+                    BrowserNavigationControls(
+                      toolbarForeground: toolbarForeground,
+                      isMobilePlatform: isMobilePlatform,
+                      onBackTap: _goBack,
+                      onForwardTap: _goForward,
+                      onHomeTap: _showQuickUrlPrompt,
+                      showHomeButton: true,
                     ),
                     MouseRegion(
                       cursor: SystemMouseCursors.click,
@@ -8530,7 +5325,7 @@ class _BrowserPageState extends State<BrowserPage>
             ),
           if (!_isOnline)
             Positioned(
-              top: widget.hideAppBar ? 16 : 0,
+              top: widget.hideAppBar ? 60 : 0,
               left: 0,
               right: 0,
               child: Material(
