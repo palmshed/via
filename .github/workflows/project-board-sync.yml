@@ -9,9 +9,9 @@ name: Project
 
 on:
   issues:
-    types: [opened, reopened, edited, labeled, unlabeled]
+    types: [opened, reopened]
   pull_request:
-    types: [opened, reopened, synchronize, edited, ready_for_review]
+    types: [opened, reopened]
 
 jobs:
   add-to-project:
@@ -23,8 +23,16 @@ jobs:
       issues: write
       pull-requests: write
     steps:
+      - id: app-token
+        name: Create Via app token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.VIA_APP_ID }}
+          private-key: ${{ secrets.VIA_APP_PRIVATE_KEY }}
+
       - name: Sync item
         uses: actions/add-to-project@v1.0.2
+        continue-on-error: true
         with:
           project-url: https://github.com/orgs/Palmshed/projects/1
-          github-token: ${{ secrets.ADD_TO_PROJECT_PAT }}
+          github-token: ${{ steps.app-token.outputs.token }}
