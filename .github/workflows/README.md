@@ -6,7 +6,7 @@ Workflow files in this directory use a shared layout:
 - YAML document marker (`---`) second.
 - Short workflow name and focused job names.
 - Repository-owner guards for automation that should only run in this repository.
-- Palmshed Via GitHub App tokens for automation that writes to pull requests, issues, projects, or refs. Uses `client-id` and `private-key` via `actions/create-github-app-token@v2`.
+ - Palmshed Via GitHub App tokens for automation that writes to pull requests, issues, projects, or refs. Uses `app-id` and `private-key` via `actions/create-github-app-token@v2`.
 
 Workflow groups:
 
