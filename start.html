@@ -34,13 +34,13 @@
     <div class="sidebar-title">Navigation</div>
     <ul class="sidebar-nav">
       <li><a href="index.html">Home</a></li>
-      <li><a href="https://github.com/bniladridas/browser/releases/latest/download/browser.dmg">Download</a></li>
+      <li><a href="https://github.com/palmshed/via/releases/latest/download/via.dmg">Download</a></li>
       <li><a href="features.html">Features</a></li>
     </ul>
 
     <div class="sidebar-title">Links</div>
     <ul class="sidebar-nav">
-      <li><a href="https://github.com/browserflutter" target="_blank">♡</a></li>
+      <li><a href="https://github.com/palmshed" target="_blank">♡</a></li>
     </ul>
 
     <div class="sidebar-title">Blog</div>
@@ -57,7 +57,7 @@
     <div class="content">
       <div class="section">
         <h3>Download</h3>
-        <p>Get the .dmg from <a href="https://github.com/bniladridas/browser/releases/latest/download/browser.dmg">click here</a>. Open it, then drag the app to the Applications folder on your disk.</p>
+        <p>Get the .dmg from <a href="https://github.com/palmshed/via/releases/latest/download/via.dmg">click here</a>. Open it, then drag the app to the Applications folder on your disk.</p>
       </div>
 
       <div class="section">
@@ -71,17 +71,17 @@
 
       <div class="section">
         <h3>Install from Terminal</h3>
-        <p>Optional: if you prefer Terminal (or need to troubleshoot), these are common commands after downloading <code>browser.dmg</code>.</p>
+        <p>Optional: if you prefer Terminal (or need to troubleshoot), these are common commands after downloading <code>via.dmg</code>.</p>
         <p><strong>Note:</strong> the mounted volume might be <code>/Volumes/browser</code> or <code>/Volumes/browser 1</code>.</p>
         <ul>
           <li>
             Verify the file and (optionally) checksum
-            <pre><code>ls -lh ~/Downloads/browser.dmg
-shasum -a 256 ~/Downloads/browser.dmg</code></pre>
+            <pre><code>ls -lh ~/Downloads/via.dmg
+shasum -a 256 ~/Downloads/via.dmg</code></pre>
           </li>
           <li>
             Mount (without opening Finder)
-            <pre><code>hdiutil attach -nobrowse ~/Downloads/browser.dmg</code></pre>
+            <pre><code>hdiutil attach -nobrowse ~/Downloads/via.dmg</code></pre>
           </li>
           <li>
             Inspect the mounted volume (name may be <code>browser</code>, <code>browser 1</code>, etc.)
@@ -107,7 +107,7 @@ spctl --assess --type execute --verbose "/Applications/Browser.app"</code></pre>
           </li>
           <li>
             Delete the downloaded DMG (optional cleanup)
-            <pre><code>rm -f ~/Downloads/browser.dmg</code></pre>
+            <pre><code>rm -f ~/Downloads/via.dmg</code></pre>
           </li>
         </ul>
       </div>
@@ -145,7 +145,7 @@ spctl --assess --type execute --verbose "/Applications/Browser.app"</code></pre>
         <p>Clone the repo, install dependencies, and launch.</p>
         <ul>
           <li>Clone and setup
-            <pre><code>git clone https://github.com/bniladridas/browser.git
+            <pre><code>git clone https://github.com/palmshed/via.git
 cd browser
 flutter pub get
 cp .env.example .env</code></pre>
@@ -245,7 +245,7 @@ git checkout -- lib/firebase_options.dart</code></pre>
       } catch (_) {}
 
       try {
-        const latestRes = await fetch("https://api.github.com/repos/bniladridas/browser/releases/latest", {
+        const latestRes = await fetch("https://api.github.com/repos/palmshed/via/releases/latest", {
           headers: { "Accept": "application/vnd.github+json" },
         });
         if (latestRes.ok) {

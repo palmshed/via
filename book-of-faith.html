@@ -34,13 +34,13 @@
     <div class="sidebar-title">Navigation</div>
     <ul class="sidebar-nav">
       <li><a href="index.html">Home</a></li>
-      <li><a href="https://github.com/bniladridas/browser/releases/latest/download/browser.dmg">Download</a></li>
+      <li><a href="https://github.com/palmshed/via/releases/latest/download/via.dmg">Download</a></li>
       <li><a href="features.html">Features</a></li>
     </ul>
 
     <div class="sidebar-title">Links</div>
     <ul class="sidebar-nav">
-      <li><a href="https://github.com/browserflutter" target="_blank">♡</a></li>
+      <li><a href="https://github.com/palmshed" target="_blank">♡</a></li>
     </ul>
 
     <div class="sidebar-title">Blog</div>
@@ -282,7 +282,7 @@
       } catch (_) {}
 
       try {
-        const latestRes = await fetch("https://api.github.com/repos/bniladridas/browser/releases/latest", {
+        const latestRes = await fetch("https://api.github.com/repos/palmshed/via/releases/latest", {
           headers: { "Accept": "application/vnd.github+json" },
         });
         if (latestRes.ok) {
