@@ -305,5 +305,8 @@
   ],
   "1.29.1": [
     "customize macOS DMG appearance with custom graphite volume icon."
+  ],
+  "1.29.2": [
+    "rename browser artifact paths to via."
   ]
 }
