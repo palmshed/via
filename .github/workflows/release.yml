@@ -161,7 +161,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/') || inputs.tag != ''
         uses: softprops/action-gh-release@v2
         with:
-          files: build/macos/Build/Products/Release/browser.dmg
+          files: build/macos/Build/Products/Release/via.dmg
           generate_release_notes: false
           tag_name: ${{ steps.validate-tag.outputs.tag }}
           token: ${{ steps.app-token.outputs.token }}
@@ -170,7 +170,7 @@ jobs:
       - name: Verify upload
         if: startsWith(github.ref, 'refs/tags/') || inputs.tag != ''
         run: |
-          if [[ ! -f build/macos/Build/Products/Release/browser.dmg ]]; then
+          if [[ ! -f build/macos/Build/Products/Release/via.dmg ]]; then
             echo "Error: DMG file not found after upload attempt"
             exit 1
           fi
@@ -178,6 +178,6 @@ jobs:
       - name: Unsigned build reminder
         if: ${{ steps.dmg.outputs.status == 'unsigned' }}
         run: |
-          if [[ -f build/macos/Build/Products/Release/browser.dmg ]]; then
+          if [[ -f build/macos/Build/Products/Release/via.dmg ]]; then
             echo "Warning: DMG is unsigned. Users will see Gatekeeper warnings on first launch."
           fi
