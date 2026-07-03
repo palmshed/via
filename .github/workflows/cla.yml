@@ -25,18 +25,6 @@ jobs:
           sparse-checkout: |
             signed.json
 
-      - name: Checkout private cla-bot
-        uses: actions/checkout@v6
-        with:
-          repository: palmshed/clabot
-          token: ${{ secrets.CLA_BOT_TOKEN }}
-          path: cla-bot
-
-      - name: Copy signed.json to cla-signers.json
-        run: |
-          cp signed.json cla-signers.json
-          cp signed.json cla-bot/cla-signers.json
-
       - id: app-token
         name: Create Via app token
         uses: actions/create-github-app-token@v2
@@ -46,6 +34,18 @@ jobs:
           permission-issues: write
           permission-pull-requests: write
           permission-contents: read
+
+      - name: Checkout private cla-bot
+        uses: actions/checkout@v6
+        with:
+          repository: palmshed/clabot
+          token: ${{ steps.app-token.outputs.token }}
+          path: cla-bot
+
+      - name: Copy signed.json to cla-signers.json
+        run: |
+          cp signed.json cla-signers.json
+          cp signed.json cla-bot/cla-signers.json
 
       - name: Run CLA bot
         uses: ./cla-bot/
