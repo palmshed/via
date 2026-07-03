@@ -21,7 +21,7 @@ jobs:
     with:
       flutter-version: '3.44.4'
       tag-prefix: 'desktop/nightly-'
-      app-name: 'browser'
+      app-name: 'via'
       base-branch: 'main'
     secrets:
       github-app-id: ${{ secrets.VIA_APP_ID }}
