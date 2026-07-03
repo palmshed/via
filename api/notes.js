@@ -1,7 +1,7 @@
-const config = require('./_lib/config');
-const { getFile, putFile } = require('./_lib/github');
-const { verifySessionToken } = require('./_lib/session');
-const { handlePreflight, sendJson } = require('./_lib/http');
+const config = require('./lib/config');
+const { getFile, putFile } = require('./lib/github');
+const { verifySessionToken } = require('./lib/session');
+const { handlePreflight, sendJson } = require('./lib/http');
 
 const decodeContent = (base64Content) => {
   const normalized = (base64Content || '').replace(/\n/g, '');

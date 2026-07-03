@@ -1,0 +1,8 @@
+# old paths → new paths
+/start.html                      /getting-started.html               301
+/blog-browser-ai.html            /writings/browser-ai.html           301
+/blog-fundamentals.html          /writings/fundamentals.html         301
+/blog-handmade.html              /writings/handmade.html             301
+/styles.css                      /assets/css/site.css                301
+/image.png                       /assets/images/brand-mark.png       301
+/faith-notes.md                  /development/authentication.md      301

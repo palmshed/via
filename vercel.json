@@ -1,14 +1,20 @@
 {
   "cleanUrls": false,
   "trailingSlash": false,
+  "redirects": [
+    { "source": "/start.html", "destination": "/getting-started.html", "permanent": true },
+    { "source": "/blog-browser-ai.html", "destination": "/writings/browser-ai.html", "permanent": true },
+    { "source": "/blog-fundamentals.html", "destination": "/writings/fundamentals.html", "permanent": true },
+    { "source": "/blog-handmade.html", "destination": "/writings/handmade.html", "permanent": true },
+    { "source": "/styles.css", "destination": "/assets/css/site.css", "permanent": true },
+    { "source": "/image.png", "destination": "/assets/images/brand-mark.png", "permanent": true },
+    { "source": "/faith-notes.md", "destination": "/AUTHENTICATION.md", "permanent": true }
+  ],
   "headers": [
     {
       "source": "/api/(.*)",
       "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-store"
-        }
+        { "key": "Cache-Control", "value": "no-store" }
       ]
     }
   ]

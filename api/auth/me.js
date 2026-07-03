@@ -1,6 +1,6 @@
-const config = require('../_lib/config');
-const { verifySessionToken } = require('../_lib/session');
-const { handlePreflight, sendJson } = require('../_lib/http');
+const config = require('../lib/config');
+const { verifySessionToken } = require('../lib/session');
+const { handlePreflight, sendJson } = require('../lib/http');
 
 const parseBearer = (req) => {
   const auth = req.headers.authorization || '';

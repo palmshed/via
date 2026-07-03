@@ -1,6 +1,6 @@
 const crypto = require('crypto');
-const config = require('../../_lib/config');
-const { createSignedPayload } = require('../../_lib/session');
+const config = require('../../lib/config');
+const { createSignedPayload } = require('../../lib/session');
 
 module.exports = async (req, res) => {
   if (!config.githubClientId || !config.sessionSecret || !config.apiBase) {

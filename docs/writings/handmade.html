@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>browser</title>
-  <link rel="stylesheet" href="styles.css">
+  <title>handmade</title>
+  <link rel="stylesheet" href="../assets/css/site.css">
 </head>
-<body class="sidebar-hidden">
+<body>
   <button class="sidebar-toggle" onclick="toggleSidebar()">☰</button>
   <button class="settings-fab" type="button" aria-label="Settings" title="Settings" aria-expanded="false" onclick="toggleSettingsModal(event)">⚙</button>
   <div class="zoom-controls">
@@ -33,9 +33,9 @@
 
     <div class="sidebar-title">Navigation</div>
     <ul class="sidebar-nav">
-      <li><a href="index.html">Home</a></li>
+      <li><a href="../index.html">Home</a></li>
       <li><a href="https://github.com/palmshed/via/releases/latest/download/via.dmg">Download</a></li>
-      <li><a href="features.html">Features</a></li>
+      <li><a href="../features.html">Features</a></li>
     </ul>
 
     <div class="sidebar-title">Links</div>
@@ -45,23 +45,35 @@
 
     <div class="sidebar-title">Blog</div>
     <ul class="sidebar-nav">
-      <li><a href="start.html">Start</a></li>
-      <li><a href="blog-fundamentals.html">Fundamentals</a></li>
-      <li><a href="blog-browser-ai.html">AI</a></li>
-      <li><a href="blog-handmade.html">Handmade</a></li>
-      <li><a href="book-of-faith.html">Faith</a></li>
+      <li><a href="../getting-started.html">Start</a></li>
+      <li><a href="fundamentals.html">Fundamentals</a></li>
+      <li><a href="browser-ai.html">AI</a></li>
+      <li><a href="handmade.html">Handmade</a></li>
+      <li><a href="../book-of-faith.html">Faith</a></li>
     </ul>
   </aside>
 
-  <main class="main centered">
-    <img src="image.png" width="400" height="100" decoding="async" fetchpriority="high" alt="browser">
-    <h1>browser</h1>
-    <div class="home-links">
-      <a href="https://github.com/palmshed/via/releases/latest/download/via.dmg">download</a>
-      <span>·</span>
-      <a href="start.html">start</a>
-      <span>·</span>
-      <a href="https://palmshed.medium.com/notes-520da32fc748">notes</a>
+  <main class="main">
+    <div class="content">
+      <div class="section">
+        <h3>Handmade Rituals</h3>
+        <p>Some releases of browser may begin with a pencil, a whiteboard, and a quiet morning. We sometimes map flows by hand before code is written.</p>
+      </div>
+
+      <div class="section">
+        <h3>Purposeful Borders</h3>
+        <p>The UI attempts to be shaped by the way people might hold their devices. Rounded cards, generous spacing, and gentle contrasts aim to give the design the breathing room of craftwork.</p>
+      </div>
+
+      <div class="section">
+        <h3>Manual Notes</h3>
+        <p>Rough notes can become a reference point. Some sections of the app and site may be reviewed manually, with handwritten annotations sometimes guiding layout tweaks so the experience may feel intentionally stitched together.</p>
+      </div>
+
+      <div class="section">
+        <h3>Soft Motion</h3>
+        <p>Micro-interactions try to be tuned like the movement of a slow hand brush stroke - possibly deliberate, calm, and somewhat considerate of focus.</p>
+      </div>
     </div>
   </main>
 

@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>fundamentals</title>
-  <link rel="stylesheet" href="styles.css">
+  <title>browser</title>
+  <link rel="stylesheet" href="assets/css/site.css">
 </head>
-<body>
+<body class="sidebar-hidden">
   <button class="sidebar-toggle" onclick="toggleSidebar()">☰</button>
   <button class="settings-fab" type="button" aria-label="Settings" title="Settings" aria-expanded="false" onclick="toggleSettingsModal(event)">⚙</button>
   <div class="zoom-controls">
@@ -45,40 +45,23 @@
 
     <div class="sidebar-title">Blog</div>
     <ul class="sidebar-nav">
-      <li><a href="start.html">Start</a></li>
-      <li><a href="blog-fundamentals.html">Fundamentals</a></li>
-      <li><a href="blog-browser-ai.html">AI</a></li>
-      <li><a href="blog-handmade.html">Handmade</a></li>
+      <li><a href="getting-started.html">Start</a></li>
+      <li><a href="writings/fundamentals.html">Fundamentals</a></li>
+      <li><a href="writings/browser-ai.html">AI</a></li>
+      <li><a href="writings/handmade.html">Handmade</a></li>
       <li><a href="book-of-faith.html">Faith</a></li>
     </ul>
   </aside>
 
-  <main class="main">
-    <div class="content">
-      <div class="section">
-        <h3>Address Bar</h3>
-        <p>Enter URL or search. Press Enter.</p>
-      </div>
-
-      <div class="section">
-        <h3>Tabs</h3>
-        <p>Multiple pages, each in its own tab.</p>
-        <ul>
-          <li>Drag to reorder</li>
-          <li>+ for new</li>
-          <li>× to close</li>
-        </ul>
-      </div>
-
-      <div class="section">
-        <h3>Minimal</h3>
-        <p>Focused UI for everyday browsing.</p>
-      </div>
-
-      <div class="section">
-        <h3>Privacy</h3>
-        <p>Privacy-focused defaults and local browsing controls.</p>
-      </div>
+  <main class="main centered">
+    <img src="assets/images/brand-mark.png" width="400" height="100" decoding="async" fetchpriority="high" alt="browser">
+    <h1>browser</h1>
+    <div class="home-links">
+      <a href="https://github.com/palmshed/via/releases/latest/download/via.dmg">download</a>
+      <span>·</span>
+      <a href="getting-started.html">start</a>
+      <span>·</span>
+      <a href="https://palmshed.medium.com/notes-520da32fc748">notes</a>
     </div>
   </main>
 

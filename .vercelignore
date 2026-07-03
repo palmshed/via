@@ -1,14 +1,10 @@
+# Flutter artifacts (leftover from main branch)
 build
 .dart_tool
 coverage
-android
-ios
-macos
-windows
-linux
 test
 integration_test
 scripts
-assets
-*.png
 *.icns
+# node_modules if any appear
+node_modules

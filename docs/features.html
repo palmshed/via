@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>start</title>
-  <link rel="stylesheet" href="styles.css">
+  <title>features</title>
+  <link rel="stylesheet" href="assets/css/site.css">
 </head>
 <body>
   <button class="sidebar-toggle" onclick="toggleSidebar()">☰</button>
@@ -45,120 +45,131 @@
 
     <div class="sidebar-title">Blog</div>
     <ul class="sidebar-nav">
-      <li><a href="start.html">Start</a></li>
-      <li><a href="blog-fundamentals.html">Fundamentals</a></li>
-      <li><a href="blog-browser-ai.html">AI</a></li>
-      <li><a href="blog-handmade.html">Handmade</a></li>
+      <li><a href="getting-started.html">Start</a></li>
+      <li><a href="writings/fundamentals.html">Fundamentals</a></li>
+      <li><a href="writings/browser-ai.html">AI</a></li>
+      <li><a href="writings/handmade.html">Handmade</a></li>
       <li><a href="book-of-faith.html">Faith</a></li>
     </ul>
   </aside>
 
   <main class="main">
     <div class="content">
-      <div class="section">
-        <h3>Download</h3>
-        <p>Get the .dmg from <a href="https://github.com/palmshed/via/releases/latest/download/via.dmg">click here</a>. Open it, then drag the app to the Applications folder on your disk.</p>
-      </div>
+      <h1 class="page-title">Features</h1>
+      <p>This page summarizes the main browser features and the settings available in the current desktop app.</p>
 
       <div class="section">
-        <h3>macOS Install Notes</h3>
-        <p>Unsigned builds may show Gatekeeper warnings.</p>
+        <h3>Quick toggles</h3>
         <ul>
-          <li>Right-click the app and choose <strong>Open</strong>.</li>
-          <li>Or go to <strong>System Settings → Privacy & Security → Open Anyway</strong>.</li>
+          <li><strong>Hide toolbar</strong> removes the address and toolbar for a more immersive view.</li>
+          <li><strong>Hide URL</strong> obscures the address text after a short idle delay and reveals it again on hover/focus.</li>
+          <li><strong>Legacy UA</strong> swaps the default string to a legacy browser when a site misbehaves.</li>
+          <li><strong>Private</strong> reduces local persistence for normal browsing data and keeps private sessions separate from standard usage.</li>
+          <li><strong>Block ads</strong> applies the built-in blocklist to every navigation.</li>
+          <li><strong>Strict mode</strong> disables JavaScript where necessary for highly sensitive pages.</li>
+          <li><strong>Passwords</strong> enables the password manager to detect and save login credentials.</li>
+          <li><strong>Ambient</strong> implements a dynamic background that adapts to the page content.</li>
         </ul>
       </div>
 
       <div class="section">
-        <h3>Install from Terminal</h3>
-        <p>Optional: if you prefer Terminal (or need to troubleshoot), these are common commands after downloading <code>via.dmg</code>.</p>
-        <p><strong>Note:</strong> the mounted volume might be <code>/Volumes/browser</code> or <code>/Volumes/browser 1</code>.</p>
+        <h3>Overflow menu</h3>
+        <p>The three dots menu (⋮) provides quick access to additional features:</p>
         <ul>
-          <li>
-            Verify the file and (optionally) checksum
-            <pre><code>ls -lh ~/Downloads/via.dmg
-shasum -a 256 ~/Downloads/via.dmg</code></pre>
-          </li>
-          <li>
-            Mount (without opening Finder)
-            <pre><code>hdiutil attach -nobrowse ~/Downloads/via.dmg</code></pre>
-          </li>
-          <li>
-            Inspect the mounted volume (name may be <code>browser</code>, <code>browser 1</code>, etc.)
-            <pre><code>ls /Volumes
-ls "/Volumes/browser"</code></pre>
-          </li>
-          <li>
-            Install via Terminal (copy app into <code>/Applications</code>)
-            <pre><code>sudo ditto "/Volumes/browser/Browser.app" "/Applications/Browser.app"</code></pre>
-          </li>
-          <li>
-            Remove quarantine flag (if Gatekeeper blocks it)
-            <pre><code>xattr -dr com.apple.quarantine "/Applications/Browser.app"</code></pre>
-          </li>
-          <li>
-            Verify signing / Gatekeeper assessment
-            <pre><code>codesign --verify --deep --strict --verbose=2 "/Applications/Browser.app"
-spctl --assess --type execute --verbose "/Applications/Browser.app"</code></pre>
-          </li>
-          <li>
-            Unmount / eject
-            <pre><code>hdiutil detach "/Volumes/browser"</code></pre>
-          </li>
-          <li>
-            Delete the downloaded DMG (optional cleanup)
-            <pre><code>rm -f ~/Downloads/via.dmg</code></pre>
-          </li>
+          <li><strong>Add Bookmark</strong> - Save the current page to your bookmarks.</li>
+          <li><strong>Bookmarks</strong> - View and manage all saved bookmarks.</li>
+          <li><strong>History</strong> - Browse your browsing history.</li>
+          <li><strong>AI Chat</strong> - Chat with AI about the current page (when available).</li>
+          <li><strong>Page Font</strong> - Override the font for the current page.</li>
+          <li><strong>Settings</strong> - Open the settings panel.</li>
+          <li><strong>What's New</strong> - See the latest features and changes.</li>
+          <li><strong>Network Debug</strong> - Inspect network requests for the current page.</li>
         </ul>
       </div>
 
       <div class="section">
-        <h3>Open</h3>
-        <p>Open from Applications or ⌘ + Space.</p>
-      </div>
-
-      <div class="section">
-        <h3>Browse</h3>
-        <p>Type URL or search in address bar. Press Enter.</p>
-      </div>
-
-      <div class="section">
-        <h3>Shortcuts</h3>
-        <div class="shortcuts-grid">
-          <div class="shortcut"><kbd>⌘ T</kbd> New Tab</div>
-          <div class="shortcut"><kbd>⌘ W</kbd> Close Tab</div>
-          <div class="shortcut"><kbd>⌘ F</kbd> Focus URL</div>
-          <div class="shortcut"><kbd>⌘ ⇧ F</kbd> Font Picker</div>
-          <div class="shortcut"><kbd>⌘ R</kbd> Refresh</div>
-          <div class="shortcut"><kbd>⌘ [</kbd> Back</div>
-          <div class="shortcut"><kbd>⌘ ]</kbd> Forward</div>
-          <div class="shortcut"><kbd>⌘ ⌥ ←</kbd> Previous Tab</div>
-          <div class="shortcut"><kbd>⌘ ⌥ →</kbd> Next Tab</div>
-          <div class="shortcut"><kbd>⌘ return</kbd> Toggle Fullscreen</div>
-          <div class="shortcut"><kbd>⌘ M / ⌘ ↓</kbd> Minimize Window</div>
-          <div class="shortcut"><kbd>esc</kbd> Unfocus Input</div>
-        </div>
-      </div>
-
-      <div class="section">
-        <h3>For Developers</h3>
-        <p>Clone the repo, install dependencies, and launch.</p>
+        <h3>Data controls</h3>
+        <p>The settings panel also includes built-in cleanup actions for local browser data.</p>
         <ul>
-          <li>Clone and setup
-            <pre><code>git clone https://github.com/palmshed/via.git
-cd browser
-flutter pub get
-cp .env.example .env</code></pre>
-          </li>
-          <li>Configure Firebase
-            <pre><code>flutterfire configure --platforms macos
-git checkout -- lib/firebase_options.dart</code></pre>
-          </li>
-          <li>Run the app
-            <pre><code>flutter run -d macos</code></pre>
-          </li>
+          <li><strong>Clear cache</strong> removes cached web content and related local web storage for open tabs.</li>
+          <li><strong>Clear</strong> removes local browser data through a confirmation dialog.</li>
+          <li><strong>Factory reset</strong> is available from the same dialog when you want a broader reset across profiles.</li>
         </ul>
-        <p>Do not commit <code>.env</code>; it contains private Firebase keys.</p>
+      </div>
+
+      <div class="section">
+        <h3>User Profiles</h3>
+        <p>Create multiple profiles to keep your browsing data separate. Each profile has its own bookmarks, history, and settings.</p>
+        <ul>
+          <li>Switch between profiles instantly from the Settings panel.</li>
+          <li>Create custom profiles with your choice of name and color.</li>
+          <li>Delete profiles you no longer need (except the default profile).</li>
+          <li>Your active profile is indicated by a checkmark in the profile list.</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <h3>Password Manager</h3>
+        <p>Flip this toggle to turn on the login detector that watches standard sign-in forms and surfaces a save prompt when credentials can be captured safely.</p>
+        <ul>
+          <li>The prompt only appears when the login form is a standard username/email + password submission.</li>
+          <li>Sites that automatically switch to passkeys, multi-step iframes, or progressive flows (e.g., Google sign-in when you already have a passkey) won’t fire the detector.</li>
+          <li>You can still manually add entries through the Password Vault screen that shows when the toggle is active.</li>
+          <li>Use the “Never save for this site” preference (stored silently in your settings) to skip prompts for shared machines.</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <h3>Media & security</h3>
+        <p>Camera and microphone requests are handled in-app so supported sites can proceed without getting stuck on missing permission flow inside the embedded web view.</p>
+        <ul>
+          <li>The browser uses the permission handler built into <code>webview_flutter</code> for audio and video capture requests.</li>
+          <li>macOS can still show an operating system permission prompt the first time access is requested.</li>
+          <li>Requests for unsupported resource types are denied instead of hanging indefinitely.</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <h3>Advanced helpers</h3>
+        <ol>
+          <li>Reorder tabs lets you drag tab buttons on the strip to keep frequently used ones close.</li>
+          <li>Tab favicon badge shows a consistent favicon tile in the tab strip (helpful when icons are hard to read on dark themes).</li>
+          <li>AI suggestions surfaces search ideas when the address bar is empty.</li>
+          <li>Erase suggestions adds a remove button to each URL suggestion so you can delete items from history instantly.</li>
+          <li>Advanced cache keeps some resources around longer for faster page reloads when you revisit a site.</li>
+        </ol>
+        <p>Theme changes and other common settings update directly in the app and are reflected across the website settings modal as well.</p>
+      </div>
+
+      <div class="section">
+        <h3>Homepage</h3>
+        <p>Set a custom homepage URL that loads when you open a new tab or launch the browser.</p>
+        <ul>
+          <li>Leave empty to use the default Torry feed.</li>
+          <li>Enter any URL to use as your landing page.</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <h3>AI Chat</h3>
+        <p>Chat with AI about the current page, ask follow-up questions, and generate quick summaries when AI is configured.</p>
+        <ul>
+          <li>Shows status as "Ready" when configured, or "Setup" otherwise.</li>
+          <li>Uses Firebase AI integration from the desktop app.</li>
+          <li>Configure it through the Firebase settings below.</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <h3>Firebase Configuration</h3>
+        <p>Connect your own Firebase project to enable AI features.</p>
+        <ul>
+          <li><strong>API Key</strong> - Your Firebase API key.</li>
+          <li><strong>App ID</strong> - Your Firebase app ID.</li>
+          <li><strong>Sender ID</strong> - Your Firebase messaging sender ID.</li>
+          <li><strong>Project ID</strong> - Your Firebase project ID.</li>
+          <li><strong>Storage Bucket</strong> - Your Firebase storage bucket URL.</li>
+        </ul>
       </div>
     </div>
   </main>

@@ -1,6 +1,6 @@
-const config = require('../../_lib/config');
-const { ghFetch } = require('../../_lib/github');
-const { verifySignedPayload, createSessionToken } = require('../../_lib/session');
+const config = require('../../lib/config');
+const { ghFetch } = require('../../lib/github');
+const { verifySignedPayload, createSessionToken } = require('../../lib/session');
 
 module.exports = async (req, res) => {
   try {

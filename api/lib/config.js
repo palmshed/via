@@ -12,7 +12,7 @@ module.exports = {
   repoOwner: process.env.NOTES_REPO_OWNER || 'palmshed',
   repoName: process.env.NOTES_REPO_NAME || 'via',
   repoBranch: process.env.NOTES_REPO_BRANCH || 'gh-pages',
-  notesPath: process.env.NOTES_FILE_PATH || 'data/faith-notes.json',
+  notesPath: process.env.NOTES_FILE_PATH || 'docs/data/faith-notes.json',
   frontendOrigin: process.env.FRONTEND_ORIGIN || 'https://palmshed.github.io',
   allowedOrigins: parseList(process.env.ALLOWED_ORIGINS || 'https://palmshed.github.io,http://localhost:8000'),
   apiBase: process.env.API_BASE || '',

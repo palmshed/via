@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>faith</title>
-  <link rel="stylesheet" href="styles.css">
+  <title>start</title>
+  <link rel="stylesheet" href="assets/css/site.css">
 </head>
 <body>
   <button class="sidebar-toggle" onclick="toggleSidebar()">☰</button>
@@ -45,10 +45,10 @@
 
     <div class="sidebar-title">Blog</div>
     <ul class="sidebar-nav">
-      <li><a href="start.html">Start</a></li>
-      <li><a href="blog-fundamentals.html">Fundamentals</a></li>
-      <li><a href="blog-browser-ai.html">AI</a></li>
-      <li><a href="blog-handmade.html">Handmade</a></li>
+      <li><a href="getting-started.html">Start</a></li>
+      <li><a href="writings/fundamentals.html">Fundamentals</a></li>
+      <li><a href="writings/browser-ai.html">AI</a></li>
+      <li><a href="writings/handmade.html">Handmade</a></li>
       <li><a href="book-of-faith.html">Faith</a></li>
     </ul>
   </aside>
@@ -56,150 +56,114 @@
   <main class="main">
     <div class="content">
       <div class="section">
-        <h3>Why Browser</h3>
-        <p id="notes-status">Loading notes...</p>
+        <h3>Download</h3>
+        <p>Get the .dmg from <a href="https://github.com/palmshed/via/releases/latest/download/via.dmg">click here</a>. Open it, then drag the app to the Applications folder on your disk.</p>
       </div>
-      <div id="notes-container"></div>
 
-      <div class="section" id="admin-controls" style="display:none;">
-        <h3>Admin</h3>
-        <p style="margin-bottom:0.6rem;">Edit one note per line.</p>
-        <textarea id="notes-editor" rows="10" style="width:100%; resize:vertical;"></textarea>
-        <div style="margin-top:0.6rem; display:flex; gap:0.5rem; flex-wrap:wrap;">
-          <button id="save-notes">Save</button>
-          <button id="logout-notes" type="button">Logout</button>
+      <div class="section">
+        <h3>macOS Install Notes</h3>
+        <p>Unsigned builds may show Gatekeeper warnings.</p>
+        <ul>
+          <li>Right-click the app and choose <strong>Open</strong>.</li>
+          <li>Or go to <strong>System Settings → Privacy & Security → Open Anyway</strong>.</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <h3>Install from Terminal</h3>
+        <p>Optional: if you prefer Terminal (or need to troubleshoot), these are common commands after downloading <code>via.dmg</code>.</p>
+        <p><strong>Note:</strong> the mounted volume might be <code>/Volumes/browser</code> or <code>/Volumes/browser 1</code>.</p>
+        <ul>
+          <li>
+            Verify the file and (optionally) checksum
+            <pre><code>ls -lh ~/Downloads/via.dmg
+shasum -a 256 ~/Downloads/via.dmg</code></pre>
+          </li>
+          <li>
+            Mount (without opening Finder)
+            <pre><code>hdiutil attach -nobrowse ~/Downloads/via.dmg</code></pre>
+          </li>
+          <li>
+            Inspect the mounted volume (name may be <code>browser</code>, <code>browser 1</code>, etc.)
+            <pre><code>ls /Volumes
+ls "/Volumes/browser"</code></pre>
+          </li>
+          <li>
+            Install via Terminal (copy app into <code>/Applications</code>)
+            <pre><code>sudo ditto "/Volumes/browser/Browser.app" "/Applications/Browser.app"</code></pre>
+          </li>
+          <li>
+            Remove quarantine flag (if Gatekeeper blocks it)
+            <pre><code>xattr -dr com.apple.quarantine "/Applications/Browser.app"</code></pre>
+          </li>
+          <li>
+            Verify signing / Gatekeeper assessment
+            <pre><code>codesign --verify --deep --strict --verbose=2 "/Applications/Browser.app"
+spctl --assess --type execute --verbose "/Applications/Browser.app"</code></pre>
+          </li>
+          <li>
+            Unmount / eject
+            <pre><code>hdiutil detach "/Volumes/browser"</code></pre>
+          </li>
+          <li>
+            Delete the downloaded DMG (optional cleanup)
+            <pre><code>rm -f ~/Downloads/via.dmg</code></pre>
+          </li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <h3>Open</h3>
+        <p>Open from Applications or ⌘ + Space.</p>
+      </div>
+
+      <div class="section">
+        <h3>Browse</h3>
+        <p>Type URL or search in address bar. Press Enter.</p>
+      </div>
+
+      <div class="section">
+        <h3>Shortcuts</h3>
+        <div class="shortcuts-grid">
+          <div class="shortcut"><kbd>⌘ T</kbd> New Tab</div>
+          <div class="shortcut"><kbd>⌘ W</kbd> Close Tab</div>
+          <div class="shortcut"><kbd>⌘ F</kbd> Focus URL</div>
+          <div class="shortcut"><kbd>⌘ ⇧ F</kbd> Font Picker</div>
+          <div class="shortcut"><kbd>⌘ R</kbd> Refresh</div>
+          <div class="shortcut"><kbd>⌘ [</kbd> Back</div>
+          <div class="shortcut"><kbd>⌘ ]</kbd> Forward</div>
+          <div class="shortcut"><kbd>⌘ ⌥ ←</kbd> Previous Tab</div>
+          <div class="shortcut"><kbd>⌘ ⌥ →</kbd> Next Tab</div>
+          <div class="shortcut"><kbd>⌘ return</kbd> Toggle Fullscreen</div>
+          <div class="shortcut"><kbd>⌘ M / ⌘ ↓</kbd> Minimize Window</div>
+          <div class="shortcut"><kbd>esc</kbd> Unfocus Input</div>
         </div>
       </div>
 
-      <div class="section" id="admin-login" style="display:none;">
-        <h3>Admin</h3>
-        <p>Sign in to edit notes.</p>
-        <a id="login-link" href="#">Login with GitHub</a>
+      <div class="section">
+        <h3>For Developers</h3>
+        <p>Clone the repo, install dependencies, and launch.</p>
+        <ul>
+          <li>Clone and setup
+            <pre><code>git clone https://github.com/palmshed/via.git
+cd browser
+flutter pub get
+cp .env.example .env</code></pre>
+          </li>
+          <li>Configure Firebase
+            <pre><code>flutterfire configure --platforms macos
+git checkout -- lib/firebase_options.dart</code></pre>
+          </li>
+          <li>Run the app
+            <pre><code>flutter run -d macos</code></pre>
+          </li>
+        </ul>
+        <p>Do not commit <code>.env</code>; it contains private Firebase keys.</p>
       </div>
     </div>
   </main>
 
   <script>
-    const fallbackNotes = [
-      'I open browser and I remember why I started.',
-      'I wanted less noise. Less chrome. Less ceremony. Just a clear place to think, read, and build.',
-      'So I kept cutting.',
-      'I removed what looked impressive but felt heavy. I kept what I reached for every day.',
-      'Tabs. History. Bookmarks. A clean bar. A fast way back to focus.',
-      'Then I added AI, but carefully.',
-      'Not as a loud assistant. Not as a gimmick. More like a quiet second mind when I need a summary, a quick explanation, or a fresh angle on a page I’m reading.',
-      'When I move through pages, it should disappear. When I open settings, it should be obvious. When I switch tabs, it should feel immediate. When I close the app, my mind should stay clear.',
-      'I think of browser as a tool for attention. Not just a tool for internet.',
-      'One less distracting detail.',
-      'I’m not trying to make the loudest browser. I’m trying to make one I trust every morning. A browser that gets out of the way, and lets me do real work.'
-    ];
-
-    const API_BASE = window.NOTES_API_BASE || '';
-    const DEFAULT_NOTES_API_BASE = 'https://via-six.vercel.app';
-    const RESOLVED_API_BASE = API_BASE || DEFAULT_NOTES_API_BASE;
-
-    function escapeHtml(input) {
-      return String(input)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/\"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-    }
-
-    function renderNotes(notes) {
-      const container = document.getElementById('notes-container');
-      container.innerHTML = '';
-      for (const note of notes) {
-        const card = document.createElement('div');
-        card.className = 'section';
-        card.innerHTML = `<p>${escapeHtml(note)}</p>`;
-        container.appendChild(card);
-      }
-    }
-
-    function getTokenFromHash() {
-      const hash = window.location.hash.startsWith('#') ? window.location.hash.substring(1) : '';
-      const params = new URLSearchParams(hash);
-      const token = params.get('admin_token');
-      if (token) {
-        localStorage.setItem('bf_admin_token', token);
-        params.delete('admin_token');
-        params.delete('admin_user');
-        const nextHash = params.toString();
-        const nextUrl = `${window.location.pathname}${window.location.search}${nextHash ? `#${nextHash}` : ''}`;
-        history.replaceState({}, '', nextUrl);
-      }
-      return localStorage.getItem('bf_admin_token') || '';
-    }
-
-    function clearToken() {
-      localStorage.removeItem('bf_admin_token');
-    }
-
-    function authHeaders(token) {
-      return token ? { Authorization: `Bearer ${token}` } : {};
-    }
-
-    function updateLoginLink() {
-      const loginLink = document.getElementById('login-link');
-      const returnTo = `${window.location.origin}${window.location.pathname}`;
-      loginLink.href = `${RESOLVED_API_BASE}/api/auth/github/start?return_to=${encodeURIComponent(returnTo)}`;
-    }
-
-    async function loadNotes() {
-      const status = document.getElementById('notes-status');
-      const adminControls = document.getElementById('admin-controls');
-      const adminLogin = document.getElementById('admin-login');
-      const editor = document.getElementById('notes-editor');
-      const token = getTokenFromHash();
-      try {
-        const res = await fetch(`${RESOLVED_API_BASE}/api/notes`, {
-          headers: authHeaders(token),
-        });
-        const data = await res.json();
-        const notes = Array.isArray(data.notes) ? data.notes : [];
-        renderNotes(notes);
-        status.textContent = notes.length ? 'Live notes' : 'No notes yet.';
-        if (data.isAdmin) {
-          adminControls.style.display = 'block';
-          adminLogin.style.display = 'none';
-          editor.value = notes.join('\n');
-        } else {
-          adminControls.style.display = 'none';
-          adminLogin.style.display = 'block';
-        }
-      } catch (e) {
-        renderNotes(fallbackNotes);
-        status.textContent = 'Offline notes';
-      }
-    }
-
-    async function saveNotes() {
-      const status = document.getElementById('notes-status');
-      const editor = document.getElementById('notes-editor');
-      const token = getTokenFromHash();
-      const notes = editor.value
-        .split('\n')
-        .map((line) => line.trim())
-        .filter(Boolean);
-      try {
-        const res = await fetch(`${RESOLVED_API_BASE}/api/notes`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
-          body: JSON.stringify({ notes }),
-        });
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          throw new Error(err.error || 'Save failed');
-        }
-        status.textContent = 'Saved.';
-        await loadNotes();
-      } catch (e) {
-        status.textContent = e.message || 'Save failed.';
-      }
-    }
-
     function toggleSidebar() {
       document.body.classList.toggle('sidebar-hidden');
       document.querySelector('.sidebar-toggle').textContent =
@@ -273,7 +237,6 @@
       if (websiteEl) websiteEl.textContent = "n/a";
 
       let fallbackCurrent = "";
-
       try {
         const currentRes = await fetch("VERSION", { cache: "no-store" });
         if (currentRes.ok) {
@@ -313,14 +276,6 @@
       }
     }
 
-    function logoutNotes() {
-      clearToken();
-      loadNotes();
-    }
-
-    document.getElementById('save-notes').addEventListener('click', saveNotes);
-    document.getElementById('logout-notes').addEventListener('click', logoutNotes);
-
     document.addEventListener("click", (event) => {
       const modal = document.getElementById("settingsModal");
       const fab = document.querySelector(".settings-fab");
@@ -335,9 +290,6 @@
         closeSettingsModal();
       }
     });
-
-    updateLoginLink();
-    loadNotes();
 
     (function () {
       initTheme();
