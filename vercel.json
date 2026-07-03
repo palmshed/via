@@ -8,7 +8,11 @@
     { "source": "/blog-handmade.html", "destination": "/writings/handmade.html", "permanent": true },
     { "source": "/styles.css", "destination": "/assets/css/site.css", "permanent": true },
     { "source": "/image.png", "destination": "/assets/images/brand-mark.png", "permanent": true },
-    { "source": "/faith-notes.md", "destination": "/AUTHENTICATION.md", "permanent": true }
+    { "source": "/faith-notes.md", "destination": "/development/authentication.md", "permanent": true },
+    { "source": "/AUTHENTICATION.md", "destination": "/development/authentication.md", "permanent": true }
+  ],
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/docs/$1" }
   ],
   "headers": [
     {
