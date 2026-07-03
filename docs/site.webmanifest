@@ -1,6 +1,6 @@
 {
-  "name": "browser",
-  "short_name": "browser",
+  "name": "Via",
+  "short_name": "Via",
   "description": "A browser for attention",
   "start_url": "/via/",
   "display": "standalone",
