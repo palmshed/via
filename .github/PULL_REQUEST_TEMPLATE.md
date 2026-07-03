@@ -1,0 +1,1 @@
+Fixes DMG path in release workflow (browser.dmg → via.dmg), app-name in nightly.yml (browser → via), and reorders GitHub App token creation in cla.yml to execute before checkout.
