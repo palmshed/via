@@ -27,7 +27,7 @@ module.exports = async (req, res) => {
       res.statusCode = 400;
       return res.end('Expired OAuth state');
     }
-    if (!statePayload.returnTo.startsWith(config.frontendOrigin)) {
+    if (!config.allowedOrigins.some((origin) => statePayload.returnTo.startsWith(origin))) {
       res.statusCode = 400;
       return res.end('Invalid return target');
     }
