@@ -1,7 +1,7 @@
 {
   "name": "Via",
   "short_name": "Via",
-  "description": "A browser for attention",
+  "description": "A calm place to browse",
   "start_url": "/via/",
   "display": "standalone",
   "background_color": "#1a1a1a",
