@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Redirecting...</title>
+  <link rel="stylesheet" href="assets/css/site.css">
+</head>
+<body class="sidebar-hidden">
+  <main class="content">
+    <p id="redirect-msg">Redirecting...</p>
+  </main>
+  <script>
+    (function() {
+      var path = window.location.pathname.replace(/^\/via\//, '/');
+      var redirects = {
+        '/start.html':            '/getting-started.html',
+        '/blog-browser-ai.html':  '/writings/browser-ai.html',
+        '/blog-fundamentals.html':'/writings/fundamentals.html',
+        '/blog-handmade.html':    '/writings/handmade.html',
+        '/styles.css':            '/assets/css/site.css',
+        '/image.png':             '/assets/images/brand-mark.png',
+        '/faith-notes.md':        '/development/authentication.md',
+      };
+      var target = redirects[path];
+      if (target) {
+        document.getElementById('redirect-msg').textContent = 'Redirecting to ' + target + '...';
+        window.location.replace(target);
+      } else {
+        document.getElementById('redirect-msg').textContent = 'Page not found.';
+      }
+    })();
+  </script>
+</body>
+</html>
