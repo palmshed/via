@@ -1,0 +1,14 @@
+build
+.dart_tool
+coverage
+android
+ios
+macos
+windows
+linux
+test
+integration_test
+scripts
+assets
+*.png
+*.icns

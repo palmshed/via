@@ -66,3 +66,4 @@ ios/
 linux/
 windows/
 .vercel
+.env*
