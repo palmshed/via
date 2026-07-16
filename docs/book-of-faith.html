@@ -1,381 +1,229 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#24d455">
-  <title>Via · faith</title>
-  <link rel="stylesheet" href="assets/css/site.css">
-  <link rel="icon" href="favicon.png" type="image/png">
-  <link rel="apple-touch-icon" href="assets/images/apple-touch-icon.png">
-  <link rel="manifest" href="site.webmanifest">
-</head>
-<body>
-  <button class="sidebar-toggle" onclick="toggleSidebar()">☰</button>
-  <button class="settings-fab" type="button" aria-label="Settings" title="Settings" aria-expanded="false" onclick="toggleSettingsModal(event)">⚙</button>
-  <div class="zoom-controls">
-    <button type="button" aria-label="Zoom in" onclick="zoomIn()">➕</button>
-    <button type="button" aria-label="Zoom out" onclick="zoomOut()">➖</button>
-  </div>
-  <div class="settings-modal" id="settingsModal" role="dialog" aria-label="Settings" aria-hidden="true">
-    <div class="settings-modal-title">Settings</div>
-    <div class="settings-modal-note">Theme</div>
-    <div class="settings-theme-options">
-      <button class="settings-theme-btn" type="button" data-theme="default" onclick="setTheme('default')">Default</button>
-      <button class="settings-theme-btn" type="button" data-theme="neutral" onclick="setTheme('neutral')">Neutral</button>
-    </div>
-    <div class="settings-release">
-      <div class="settings-release-row"><span>Current</span><strong id="currentRelease">n/a</strong></div>
-      <div class="settings-release-row"><span>Website</span><strong id="websiteVersion">n/a</strong></div>
-      <div class="settings-release-row"><span>Latest</span><strong id="latestRelease">n/a</strong></div>
-      <div class="settings-release-row"><span>Installer</span><strong>DMG (macOS)</strong></div>
-    </div>
-  </div>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Journal ~ Via</title>
+    <meta name="description" content="Why Via exists." />
+    <link rel="stylesheet" href="assets/css/site.css" />
+    <link rel="icon" href="favicon.png" type="image/png" />
+    <link rel="apple-touch-icon" href="assets/images/apple-touch-icon.png" />
+    <link rel="manifest" href="site.webmanifest" />
+  </head>
+  <body>
+    <nav>
+      <span class="nav-mark">via</span>
+      <ul class="nav-links" id="nav">
+        <li><a href="./index.html">Home</a></li>
+        <li><a href="./getting-started.html">Docs</a></li>
+        <li><a href="./book-of-faith.html" class="active">Journal</a></li>
+        <li><a href="./features.html">Support</a></li>
+      </ul>
+      <button class="mobile-menu-toggle" aria-label="Menu" aria-expanded="false">Menu</button>
+    </nav>
 
-  <aside class="sidebar">
-    <img src="assets/images/palmshed-icon.png" class="sidebar-logo" style="width: 32px; height: 32px; border-radius: 6px; margin-bottom: 0.5rem;">
-
-    <div class="sidebar-title">Navigation</div>
-    <ul class="sidebar-nav">
-      <li><a href="index.html">Home</a></li>
-      <li><a href="https://github.com/palmshed/via/releases/latest/download/via.dmg">Download</a></li>
-      <li><a href="features.html">Features</a></li>
-    </ul>
-
-    <div class="sidebar-title">Links</div>
-    <ul class="sidebar-nav">
-      <li><a href="https://github.com/palmshed" target="_blank">♡</a></li>
-    </ul>
-
-    <div class="sidebar-title">Blog</div>
-    <ul class="sidebar-nav">
-      <li><a href="getting-started.html">Start</a></li>
-      <li><a href="writings/fundamentals.html">Fundamentals</a></li>
-      <li><a href="writings/browser-ai.html">AI</a></li>
-      <li><a href="writings/handmade.html">Handmade</a></li>
-      <li><a href="book-of-faith.html">Faith</a></li>
-    </ul>
-  </aside>
-
-  <main class="main">
-    <div class="content">
-      <div class="section">
-        <h3>Why Browser</h3>
-        <p id="notes-status">Loading notes...</p>
+    <div class="hero hero-short">
+      <div class="hero-content">
+        <h1>Journal</h1>
+        <p>Why Via exists.</p>
       </div>
+    </div>
+
+    <div class="page">
+      <section>
+        <h2>Why Via</h2>
+        <p id="notes-status">Loading notes...</p>
+      </section>
+
       <div id="notes-container"></div>
 
-      <div class="section" id="admin-controls" style="display:none;">
-        <h3>Admin</h3>
+      <section id="admin-controls" style="display:none;">
+        <h2>Admin</h2>
         <p style="margin-bottom:0.6rem;">Edit one note per line.</p>
         <textarea id="notes-editor" rows="10" style="width:100%; resize:vertical;"></textarea>
         <div style="margin-top:0.6rem; display:flex; gap:0.5rem; flex-wrap:wrap;">
-          <button id="save-notes">Save</button>
-          <button id="logout-notes" type="button">Logout</button>
+          <button id="save-notes" class="btn" type="button">Save</button>
+          <button id="logout-notes" class="btn" type="button">Logout</button>
         </div>
-      </div>
+      </section>
 
-      <div class="section" id="admin-login" style="display:none;">
-        <h3>Admin</h3>
+      <section id="admin-login" style="display:none;">
+        <h2>Admin</h2>
         <p>Sign in to edit notes.</p>
-        <a id="login-link" href="#">Login with GitHub</a>
-      </div>
+        <p><a id="login-link" href="#">Login with GitHub</a></p>
+      </section>
+
+      <p class="feedback">Found something unexpected? <a href="https://github.com/palmshed/via/issues">Report an issue</a>.</p>
     </div>
-  </main>
 
-  <script>
-    const fallbackNotes = [
-      'I open browser and I remember why I started.',
-      'I wanted less noise. Less chrome. Less ceremony. Just a clear place to think, read, and build.',
-      'So I kept cutting.',
-      'I removed what looked impressive but felt heavy. I kept what I reached for every day.',
-      'Tabs. History. Bookmarks. A clean bar. A fast way back to focus.',
-      'Then I added AI, but carefully.',
-      'Not as a loud assistant. Not as a gimmick. More like a quiet second mind when I need a summary, a quick explanation, or a fresh angle on a page I’m reading.',
-      'When I move through pages, it should disappear. When I open settings, it should be obvious. When I switch tabs, it should feel immediate. When I close the app, my mind should stay clear.',
-      'I think of browser as a tool for attention. Not just a tool for internet.',
-      'One less distracting detail.',
-      'I’m not trying to make the loudest browser. I’m trying to make one I trust every morning. A browser that gets out of the way, and lets me do real work.'
-    ];
+    <footer>
+      <p>&copy; 2026 Palmshed</p>
+      <ul class="footer-links">
+        <li><a href="./index.html">Home</a></li>
+        <li><a href="./getting-started.html">Docs</a></li>
+        <li><a href="./book-of-faith.html">Journal</a></li>
+        <li><a href="./features.html">Support</a></li>
+      </ul>
+    </footer>
 
-    const API_BASE = window.NOTES_API_BASE || '';
-    const DEFAULT_NOTES_API_BASE = 'https://via-six.vercel.app';
-    const RESOLVED_API_BASE = API_BASE || DEFAULT_NOTES_API_BASE;
+    <script>
+      const fallbackNotes = [
+        'I open Via and I remember why I started.',
+        'I wanted less noise. Less chrome. Less ceremony. Just a clear place to think, read, and build.',
+        'So I kept cutting.',
+        'I removed what looked impressive but felt heavy. I kept what I reached for every day.',
+        'Tabs. History. Bookmarks. A clean bar. A fast way back to focus.',
+        'Then I added AI, but carefully.',
+        'Not as a loud assistant. Not as a gimmick. More like a quiet second mind when I need a summary, a quick explanation, or a fresh angle on a page I’m reading.',
+        'When I move through pages, it should disappear. When I open settings, it should be obvious. When I switch tabs, it should feel immediate. When I close the app, my mind should stay clear.',
+        'I think of Via as a tool for attention. Not just a tool for internet.',
+        'One less distracting detail.',
+        'I’m not trying to make the loudest browser. I’m trying to make one I trust every morning. A Via that gets out of the way, and lets me do real work.'
+      ];
 
-    function escapeHtml(input) {
-      return String(input)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/\"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-    }
+      const API_BASE = window.NOTES_API_BASE || '';
+      const DEFAULT_NOTES_API_BASE = 'https://via-six.vercel.app';
+      const RESOLVED_API_BASE = API_BASE || DEFAULT_NOTES_API_BASE;
 
-    function renderNotes(notes) {
-      const container = document.getElementById('notes-container');
-      container.innerHTML = '';
-      for (const note of notes) {
-        const card = document.createElement('div');
-        card.className = 'section';
-        card.innerHTML = `<p>${escapeHtml(note)}</p>`;
-        container.appendChild(card);
+      function escapeHtml(input) {
+        return String(input)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/\"/g, '&quot;')
+          .replace(/'/g, '&#039;');
       }
-    }
 
-    function getTokenFromHash() {
-      const hash = window.location.hash.startsWith('#') ? window.location.hash.substring(1) : '';
-      const params = new URLSearchParams(hash);
-      const token = params.get('admin_token');
-      if (token) {
-        localStorage.setItem('bf_admin_token', token);
-        params.delete('admin_token');
-        params.delete('admin_user');
-        const nextHash = params.toString();
-        const nextUrl = `${window.location.pathname}${window.location.search}${nextHash ? `#${nextHash}` : ''}`;
-        history.replaceState({}, '', nextUrl);
-      }
-      return localStorage.getItem('bf_admin_token') || '';
-    }
-
-    function clearToken() {
-      localStorage.removeItem('bf_admin_token');
-    }
-
-    function authHeaders(token) {
-      return token ? { Authorization: `Bearer ${token}` } : {};
-    }
-
-    function updateLoginLink() {
-      const loginLink = document.getElementById('login-link');
-      const returnTo = `${window.location.origin}${window.location.pathname}`;
-      loginLink.href = `${RESOLVED_API_BASE}/api/auth/github/start?return_to=${encodeURIComponent(returnTo)}`;
-    }
-
-    async function loadNotes() {
-      const status = document.getElementById('notes-status');
-      const adminControls = document.getElementById('admin-controls');
-      const adminLogin = document.getElementById('admin-login');
-      const editor = document.getElementById('notes-editor');
-      const token = getTokenFromHash();
-      try {
-        const res = await fetch(`${RESOLVED_API_BASE}/api/notes`, {
-          headers: authHeaders(token),
-        });
-        const data = await res.json();
-        const notes = Array.isArray(data.notes) ? data.notes : [];
-        renderNotes(notes);
-        status.textContent = notes.length ? 'Live notes' : 'No notes yet.';
-        if (data.isAdmin) {
-          adminControls.style.display = 'block';
-          adminLogin.style.display = 'none';
-          editor.value = notes.join('\n');
-        } else {
-          adminControls.style.display = 'none';
-          adminLogin.style.display = 'block';
+      function renderNotes(notes) {
+        const container = document.getElementById('notes-container');
+        container.innerHTML = '';
+        for (const note of notes) {
+          const card = document.createElement('div');
+          card.className = 'note-card';
+          card.innerHTML = '<p>' + escapeHtml(note) + '</p>';
+          container.appendChild(card);
         }
-      } catch (e) {
-        renderNotes(fallbackNotes);
-        status.textContent = 'Offline notes';
-      }
-    }
-
-    async function saveNotes() {
-      const status = document.getElementById('notes-status');
-      const editor = document.getElementById('notes-editor');
-      const token = getTokenFromHash();
-      const notes = editor.value
-        .split('\n')
-        .map((line) => line.trim())
-        .filter(Boolean);
-      try {
-        const res = await fetch(`${RESOLVED_API_BASE}/api/notes`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
-          body: JSON.stringify({ notes }),
-        });
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          throw new Error(err.error || 'Save failed');
-        }
-        status.textContent = 'Saved.';
-        await loadNotes();
-      } catch (e) {
-        status.textContent = e.message || 'Save failed.';
-      }
-    }
-
-    function toggleSidebar() {
-      document.body.classList.toggle('sidebar-hidden');
-      document.querySelector('.sidebar-toggle').textContent =
-        document.body.classList.contains('sidebar-hidden') ? '☰' : '✕';
-    }
-
-    function toggleSettingsModal(event) {
-      event.stopPropagation();
-      const modal = document.getElementById("settingsModal");
-      const fab = document.querySelector(".settings-fab");
-      if (!modal || !fab) return;
-      const isOpen = modal.classList.toggle("open");
-      modal.setAttribute("aria-hidden", isOpen ? "false" : "true");
-      fab.setAttribute("aria-expanded", isOpen ? "true" : "false");
-    }
-
-    function closeSettingsModal() {
-      const modal = document.getElementById("settingsModal");
-      const fab = document.querySelector(".settings-fab");
-      if (!modal || !fab) return;
-      modal.classList.remove("open");
-      modal.setAttribute("aria-hidden", "true");
-      fab.setAttribute("aria-expanded", "false");
-    }
-
-    function syncThemeButtons(theme) {
-      document.querySelectorAll(".settings-theme-btn").forEach((btn) => {
-        btn.classList.toggle("active", btn.dataset.theme === theme);
-      });
-    }
-
-    function applyTheme(theme) {
-      document.body.setAttribute("data-theme", theme);
-      syncThemeButtons(theme);
-    }
-
-    function setTheme(theme) {
-      localStorage.setItem("browser-theme", theme);
-      applyTheme(theme);
-    }
-
-    function initTheme() {
-      const savedTheme = localStorage.getItem("browser-theme") || "default";
-      applyTheme(savedTheme);
-    }
-
-    function checkForUpdates() {
-      const fab = document.querySelector(".settings-fab");
-      if (!fab) return;
-      const lastVersion = localStorage.getItem("last-website-version");
-      const currentVersion = document.getElementById("websiteVersion")?.textContent;
-      if (currentVersion && currentVersion !== "n/a" && currentVersion !== lastVersion) {
-        fab.classList.add("has-updates");
-      }
-      fab.addEventListener("click", () => {
-        fab.classList.remove("has-updates");
-        if (currentVersion && currentVersion !== "n/a") {
-          localStorage.setItem("last-website-version", currentVersion);
-        }
-      }, { once: true });
-    }
-
-    async function loadReleaseInfo() {
-      const currentEl = document.getElementById("currentRelease");
-      const websiteEl = document.getElementById("websiteVersion");
-      const latestEl = document.getElementById("latestRelease");
-      if (!currentEl || !latestEl) return;
-
-      currentEl.textContent = "n/a";
-      latestEl.textContent = "n/a";
-      if (websiteEl) websiteEl.textContent = "n/a";
-
-      let fallbackCurrent = "";
-
-      try {
-        const currentRes = await fetch("VERSION", { cache: "no-store" });
-        if (currentRes.ok) {
-          fallbackCurrent = (await currentRes.text()).trim();
-        }
-      } catch (_) {}
-
-      try {
-        const latestRes = await fetch("https://api.github.com/repos/palmshed/via/releases/latest", {
-          headers: { "Accept": "application/vnd.github+json" },
-        });
-        if (latestRes.ok) {
-          const latest = await latestRes.json();
-          const tag = String(latest.tag_name || "").replace(/^desktop\/app-/, "");
-          if (tag) {
-            latestEl.textContent = tag;
-            currentEl.textContent = tag;
-          }
-        }
-      } catch (_) {}
-
-      if (fallbackCurrent) {
-        currentEl.textContent = fallbackCurrent;
       }
 
-      if (websiteEl) {
+      function getTokenFromHash() {
+        const hash = window.location.hash.startsWith('#') ? window.location.hash.substring(1) : '';
+        const params = new URLSearchParams(hash);
+        const token = params.get('admin_token');
+        if (token) {
+          localStorage.setItem('bf_admin_token', token);
+          params.delete('admin_token');
+          params.delete('admin_user');
+          const nextHash = params.toString();
+          const nextUrl = window.location.pathname + window.location.search + (nextHash ? '#' + nextHash : '');
+          history.replaceState({}, '', nextUrl);
+        }
+        return localStorage.getItem('bf_admin_token') || '';
+      }
+
+      function clearToken() {
+        localStorage.removeItem('bf_admin_token');
+      }
+
+      function authHeaders(token) {
+        return token ? { Authorization: 'Bearer ' + token } : {};
+      }
+
+      function updateLoginLink() {
+        const loginLink = document.getElementById('login-link');
+        const returnTo = window.location.origin + window.location.pathname;
+        loginLink.href = RESOLVED_API_BASE + '/api/auth/github/start?return_to=' + encodeURIComponent(returnTo);
+      }
+
+      async function loadNotes() {
+        const status = document.getElementById('notes-status');
+        const adminControls = document.getElementById('admin-controls');
+        const adminLogin = document.getElementById('admin-login');
+        const editor = document.getElementById('notes-editor');
+        const token = getTokenFromHash();
         try {
-          const webRes = await fetch("WEBSITE-VERSION", { cache: "no-store" });
-          if (webRes.ok) {
-            websiteEl.textContent = (await webRes.text()).trim();
+          const res = await fetch(RESOLVED_API_BASE + '/api/notes', {
+            headers: authHeaders(token),
+          });
+          const data = await res.json();
+          const notes = Array.isArray(data.notes) ? data.notes : [];
+          renderNotes(notes);
+          status.textContent = notes.length ? 'Live notes' : 'No notes yet.';
+          if (data.isAdmin) {
+            adminControls.style.display = 'block';
+            adminLogin.style.display = 'none';
+            editor.value = notes.join('\n');
           } else {
-            websiteEl.textContent = new Date().toISOString().split('T')[0];
+            adminControls.style.display = 'none';
+            adminLogin.style.display = 'block';
           }
-        } catch (_) {
-          websiteEl.textContent = new Date().toISOString().split('T')[0];
+        } catch (e) {
+          renderNotes(fallbackNotes);
+          status.textContent = 'Offline notes';
         }
       }
-    }
 
-    function logoutNotes() {
-      clearToken();
+      async function saveNotes() {
+        const status = document.getElementById('notes-status');
+        const editor = document.getElementById('notes-editor');
+        const token = getTokenFromHash();
+        const notes = editor.value
+          .split('\n')
+          .map(function(line) { return line.trim(); })
+          .filter(Boolean);
+        try {
+          const res = await fetch(RESOLVED_API_BASE + '/api/notes', {
+            method: 'POST',
+            headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders(token)),
+            body: JSON.stringify({ notes: notes }),
+          });
+          if (!res.ok) {
+            const err = await res.json().catch(function() { return {}; });
+            throw new Error(err.error || 'Save failed');
+          }
+          status.textContent = 'Saved.';
+          await loadNotes();
+        } catch (e) {
+          status.textContent = e.message || 'Save failed.';
+        }
+      }
+
+      function logoutNotes() {
+        clearToken();
+        loadNotes();
+      }
+
+      document.getElementById('save-notes').addEventListener('click', saveNotes);
+      document.getElementById('logout-notes').addEventListener('click', logoutNotes);
+
+      updateLoginLink();
       loadNotes();
-    }
+    </script>
 
-    document.getElementById('save-notes').addEventListener('click', saveNotes);
-    document.getElementById('logout-notes').addEventListener('click', logoutNotes);
-
-    document.addEventListener("click", (event) => {
-      const modal = document.getElementById("settingsModal");
-      const fab = document.querySelector(".settings-fab");
-      if (!modal || !fab) return;
-      if (!modal.contains(event.target) && !fab.contains(event.target)) {
-        closeSettingsModal();
-      }
-    });
-
-    document.addEventListener("keydown", (event) => {
-      if (event.key === "Escape") {
-        closeSettingsModal();
-      }
-    });
-
-    updateLoginLink();
-    loadNotes();
-
-    (function () {
-      initTheme();
-      loadReleaseInfo().then(checkForUpdates);
-
-      const currentZoom = { level: 1 };
-      function zoomIn() {
-        if (currentZoom.level < 2) {
-          currentZoom.level += 0.1;
-          document.body.style.zoom = currentZoom.level;
-        }
-      }
-      function zoomOut() {
-        if (currentZoom.level > 0.5) {
-          currentZoom.level -= 0.1;
-          document.body.style.zoom = currentZoom.level;
-        }
-      }
-      window.zoomIn = zoomIn;
-      window.zoomOut = zoomOut;
-
-      const toggleBtn = document.querySelector('.sidebar-toggle');
-      if (!toggleBtn) return;
-      const getScrollPosition = () => window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0;
-      const handleScroll = () => {
-        if (getScrollPosition() > 0) {
-          toggleBtn.classList.add('scroll-hide');
-        } else {
-          toggleBtn.classList.remove('scroll-hide');
-        }
-      };
-      window.addEventListener('scroll', handleScroll, { passive: true });
-      handleScroll();
-    })();
-  </script>
-</body>
+    <script>
+      (function() {
+        var toggle = document.querySelector('.mobile-menu-toggle');
+        var nav = document.getElementById('nav');
+        if (!toggle || !nav) return;
+        function sync() { toggle.setAttribute('aria-expanded', nav.classList.contains('active')); }
+        toggle.addEventListener('click', function(e) {
+          e.stopPropagation();
+          nav.classList.toggle('active');
+          sync();
+        });
+        document.addEventListener('click', function(e) {
+          if (nav.classList.contains('active') && !nav.contains(e.target) && e.target !== toggle) {
+            nav.classList.remove('active');
+            sync();
+          }
+        });
+        document.addEventListener('keydown', function(e) {
+          if (e.key === 'Escape' && nav.classList.contains('active')) {
+            nav.classList.remove('active');
+            sync();
+            toggle.focus();
+          }
+        });
+      })();
+    </script>
+  </body>
 </html>

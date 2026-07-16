@@ -1,82 +1,56 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#24d455">
-  <title>Via · start</title>
-  <link rel="stylesheet" href="assets/css/site.css">
-  <link rel="icon" href="favicon.png" type="image/png">
-  <link rel="apple-touch-icon" href="assets/images/apple-touch-icon.png">
-  <link rel="manifest" href="site.webmanifest">
-</head>
-<body>
-  <button class="sidebar-toggle" onclick="toggleSidebar()">☰</button>
-  <button class="settings-fab" type="button" aria-label="Settings" title="Settings" aria-expanded="false" onclick="toggleSettingsModal(event)">⚙</button>
-  <div class="zoom-controls">
-    <button type="button" aria-label="Zoom in" onclick="zoomIn()">➕</button>
-    <button type="button" aria-label="Zoom out" onclick="zoomOut()">➖</button>
-  </div>
-  <div class="settings-modal" id="settingsModal" role="dialog" aria-label="Settings" aria-hidden="true">
-    <div class="settings-modal-title">Settings</div>
-    <div class="settings-modal-note">Theme</div>
-    <div class="settings-theme-options">
-      <button class="settings-theme-btn" type="button" data-theme="default" onclick="setTheme('default')">Default</button>
-      <button class="settings-theme-btn" type="button" data-theme="neutral" onclick="setTheme('neutral')">Neutral</button>
-    </div>
-    <div class="settings-release">
-      <div class="settings-release-row"><span>Current</span><strong id="currentRelease">n/a</strong></div>
-      <div class="settings-release-row"><span>Website</span><strong id="websiteVersion">n/a</strong></div>
-      <div class="settings-release-row"><span>Latest</span><strong id="latestRelease">n/a</strong></div>
-      <div class="settings-release-row"><span>Installer</span><strong>DMG (macOS)</strong></div>
-    </div>
-  </div>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Docs ~ Via</title>
+    <meta name="description" content="Download, install, and start using Via on macOS." />
+    <link rel="stylesheet" href="assets/css/site.css" />
+    <link rel="icon" href="favicon.png" type="image/png" />
+    <link rel="apple-touch-icon" href="assets/images/apple-touch-icon.png" />
+    <link rel="manifest" href="site.webmanifest" />
+  </head>
+  <body>
+    <nav>
+      <span class="nav-mark">via</span>
+      <ul class="nav-links" id="nav">
+        <li><a href="./index.html">Home</a></li>
+        <li><a href="./getting-started.html" class="active">Docs</a></li>
+        <li><a href="./book-of-faith.html">Journal</a></li>
+        <li><a href="./features.html">Support</a></li>
+      </ul>
+      <button class="mobile-menu-toggle" aria-label="Menu" aria-expanded="false">Menu</button>
+    </nav>
 
-  <aside class="sidebar">
-    <img src="assets/images/palmshed-icon.png" class="sidebar-logo" style="width: 32px; height: 32px; border-radius: 6px; margin-bottom: 0.5rem;">
-
-    <div class="sidebar-title">Navigation</div>
-    <ul class="sidebar-nav">
-      <li><a href="index.html">Home</a></li>
-      <li><a href="https://github.com/palmshed/via/releases/latest/download/via.dmg">Download</a></li>
-      <li><a href="features.html">Features</a></li>
-    </ul>
-
-    <div class="sidebar-title">Links</div>
-    <ul class="sidebar-nav">
-      <li><a href="https://github.com/palmshed" target="_blank">♡</a></li>
-    </ul>
-
-    <div class="sidebar-title">Blog</div>
-    <ul class="sidebar-nav">
-      <li><a href="getting-started.html">Start</a></li>
-      <li><a href="writings/fundamentals.html">Fundamentals</a></li>
-      <li><a href="writings/browser-ai.html">AI</a></li>
-      <li><a href="writings/handmade.html">Handmade</a></li>
-      <li><a href="book-of-faith.html">Faith</a></li>
-    </ul>
-  </aside>
-
-  <main class="main">
-    <div class="content">
-      <div class="section">
-        <h3>Download</h3>
-        <p>Get the .dmg from <a href="https://github.com/palmshed/via/releases/latest/download/via.dmg">click here</a>. Open it, then drag the app to the Applications folder on your disk.</p>
+    <div class="hero hero-short">
+      <div class="hero-content">
+        <h1>Get started</h1>
+        <p>Download, install, and start using Via on macOS.</p>
       </div>
+    </div>
 
-      <div class="section">
-        <h3>macOS Install Notes</h3>
+    <div class="page">
+      <section>
+        <h2>Download</h2>
+        <p>Get the .dmg from <a href="https://github.com/palmshed/via/releases/latest/download/via.dmg">the latest release</a>. Open it, then drag the app to the Applications folder on your disk.</p>
+        <div class="hero-actions">
+          <a href="https://github.com/palmshed/via/releases/latest/download/via.dmg">Download .dmg</a>
+        </div>
+      </section>
+
+      <section>
+        <h2>macOS install notes</h2>
         <p>Unsigned builds may show Gatekeeper warnings.</p>
         <ul>
           <li>Right-click the app and choose <strong>Open</strong>.</li>
-          <li>Or go to <strong>System Settings → Privacy & Security → Open Anyway</strong>.</li>
+          <li>Or go to <strong>System Settings → Privacy &amp; Security → Open Anyway</strong>.</li>
         </ul>
-      </div>
+      </section>
 
-      <div class="section">
-        <h3>Install from Terminal</h3>
+      <section>
+        <h2>Install from Terminal</h2>
         <p>Optional: if you prefer Terminal (or need to troubleshoot), these are common commands after downloading <code>via.dmg</code>.</p>
-        <p><strong>Note:</strong> the mounted volume might be <code>/Volumes/browser</code> or <code>/Volumes/browser 1</code>.</p>
+        <p><strong>Note:</strong> the mounted volume might be <code>/Volumes/Via</code> or <code>/Volumes/Via 1</code>.</p>
         <ul>
           <li>
             Verify the file and (optionally) checksum
@@ -88,69 +62,69 @@ shasum -a 256 ~/Downloads/via.dmg</code></pre>
             <pre><code>hdiutil attach -nobrowse ~/Downloads/via.dmg</code></pre>
           </li>
           <li>
-            Inspect the mounted volume (name may be <code>browser</code>, <code>browser 1</code>, etc.)
+            Inspect the mounted volume (name may be <code>Via</code>, <code>Via 1</code>, etc.)
             <pre><code>ls /Volumes
-ls "/Volumes/browser"</code></pre>
+ls "/Volumes/Via"</code></pre>
           </li>
           <li>
             Install via Terminal (copy app into <code>/Applications</code>)
-            <pre><code>sudo ditto "/Volumes/browser/Browser.app" "/Applications/Browser.app"</code></pre>
+            <pre><code>sudo ditto "/Volumes/Via/Via.app" "/Applications/Via.app"</code></pre>
           </li>
           <li>
             Remove quarantine flag (if Gatekeeper blocks it)
-            <pre><code>xattr -dr com.apple.quarantine "/Applications/Browser.app"</code></pre>
+            <pre><code>xattr -dr com.apple.quarantine "/Applications/Via.app"</code></pre>
           </li>
           <li>
             Verify signing / Gatekeeper assessment
-            <pre><code>codesign --verify --deep --strict --verbose=2 "/Applications/Browser.app"
-spctl --assess --type execute --verbose "/Applications/Browser.app"</code></pre>
+            <pre><code>codesign --verify --deep --strict --verbose=2 "/Applications/Via.app"
+spctl --assess --type execute --verbose "/Applications/Via.app"</code></pre>
           </li>
           <li>
             Unmount / eject
-            <pre><code>hdiutil detach "/Volumes/browser"</code></pre>
+            <pre><code>hdiutil detach "/Volumes/Via"</code></pre>
           </li>
           <li>
             Delete the downloaded DMG (optional cleanup)
             <pre><code>rm -f ~/Downloads/via.dmg</code></pre>
           </li>
         </ul>
-      </div>
+      </section>
 
-      <div class="section">
-        <h3>Open</h3>
+      <section>
+        <h2>Open</h2>
         <p>Open from Applications or ⌘ + Space.</p>
-      </div>
+      </section>
 
-      <div class="section">
-        <h3>Browse</h3>
-        <p>Type URL or search in address bar. Press Enter.</p>
-      </div>
+      <section>
+        <h2>Browse</h2>
+        <p>Type a URL or search in the address bar. Press Enter.</p>
+      </section>
 
-      <div class="section">
-        <h3>Shortcuts</h3>
+      <section>
+        <h2>Shortcuts</h2>
         <div class="shortcuts-grid">
-          <div class="shortcut"><kbd>⌘ T</kbd> New Tab</div>
-          <div class="shortcut"><kbd>⌘ W</kbd> Close Tab</div>
+          <div class="shortcut"><kbd>⌘ T</kbd> New tab</div>
+          <div class="shortcut"><kbd>⌘ W</kbd> Close tab</div>
           <div class="shortcut"><kbd>⌘ F</kbd> Focus URL</div>
-          <div class="shortcut"><kbd>⌘ ⇧ F</kbd> Font Picker</div>
+          <div class="shortcut"><kbd>⌘ ⇧ F</kbd> Font picker</div>
           <div class="shortcut"><kbd>⌘ R</kbd> Refresh</div>
           <div class="shortcut"><kbd>⌘ [</kbd> Back</div>
           <div class="shortcut"><kbd>⌘ ]</kbd> Forward</div>
-          <div class="shortcut"><kbd>⌘ ⌥ ←</kbd> Previous Tab</div>
-          <div class="shortcut"><kbd>⌘ ⌥ →</kbd> Next Tab</div>
-          <div class="shortcut"><kbd>⌘ return</kbd> Toggle Fullscreen</div>
-          <div class="shortcut"><kbd>⌘ M / ⌘ ↓</kbd> Minimize Window</div>
-          <div class="shortcut"><kbd>esc</kbd> Unfocus Input</div>
+          <div class="shortcut"><kbd>⌘ ⌥ ←</kbd> Previous tab</div>
+          <div class="shortcut"><kbd>⌘ ⌥ →</kbd> Next tab</div>
+          <div class="shortcut"><kbd>⌘ return</kbd> Toggle fullscreen</div>
+          <div class="shortcut"><kbd>⌘ M / ⌘ ↓</kbd> Minimize window</div>
+          <div class="shortcut"><kbd>esc</kbd> Unfocus input</div>
         </div>
-      </div>
+      </section>
 
-      <div class="section">
-        <h3>For Developers</h3>
+      <section>
+        <h2>For developers</h2>
         <p>Clone the repo, install dependencies, and launch.</p>
         <ul>
           <li>Clone and setup
             <pre><code>git clone https://github.com/palmshed/via.git
-cd browser
+cd via
 flutter pub get
 cp .env.example .env</code></pre>
           </li>
@@ -162,172 +136,47 @@ git checkout -- lib/firebase_options.dart</code></pre>
             <pre><code>flutter run -d macos</code></pre>
           </li>
         </ul>
-        <p>Do not commit <code>.env</code>; it contains private Firebase keys.</p>
-      </div>
+        <p class="subtext">Do not commit <code>.env</code>; it contains private Firebase keys.</p>
+      </section>
+
+      <p class="feedback">Found something unexpected? <a href="https://github.com/palmshed/via/issues">Report an issue</a>.</p>
     </div>
-  </main>
 
-  <script>
-    function toggleSidebar() {
-      document.body.classList.toggle('sidebar-hidden');
-      document.querySelector('.sidebar-toggle').textContent =
-        document.body.classList.contains('sidebar-hidden') ? '☰' : '✕';
-    }
+    <footer>
+      <p>&copy; 2026 Palmshed</p>
+      <ul class="footer-links">
+        <li><a href="./index.html">Home</a></li>
+        <li><a href="./getting-started.html">Docs</a></li>
+        <li><a href="./book-of-faith.html">Journal</a></li>
+        <li><a href="./features.html">Support</a></li>
+      </ul>
+    </footer>
 
-    function toggleSettingsModal(event) {
-      event.stopPropagation();
-      const modal = document.getElementById("settingsModal");
-      const fab = document.querySelector(".settings-fab");
-      if (!modal || !fab) return;
-      const isOpen = modal.classList.toggle("open");
-      modal.setAttribute("aria-hidden", isOpen ? "false" : "true");
-      fab.setAttribute("aria-expanded", isOpen ? "true" : "false");
-    }
-
-    function closeSettingsModal() {
-      const modal = document.getElementById("settingsModal");
-      const fab = document.querySelector(".settings-fab");
-      if (!modal || !fab) return;
-      modal.classList.remove("open");
-      modal.setAttribute("aria-hidden", "true");
-      fab.setAttribute("aria-expanded", "false");
-    }
-
-    function syncThemeButtons(theme) {
-      document.querySelectorAll(".settings-theme-btn").forEach((btn) => {
-        btn.classList.toggle("active", btn.dataset.theme === theme);
-      });
-    }
-
-    function applyTheme(theme) {
-      document.body.setAttribute("data-theme", theme);
-      syncThemeButtons(theme);
-    }
-
-    function setTheme(theme) {
-      localStorage.setItem("browser-theme", theme);
-      applyTheme(theme);
-    }
-
-    function initTheme() {
-      const savedTheme = localStorage.getItem("browser-theme") || "default";
-      applyTheme(savedTheme);
-    }
-
-    function checkForUpdates() {
-      const fab = document.querySelector(".settings-fab");
-      if (!fab) return;
-      const lastVersion = localStorage.getItem("last-website-version");
-      const currentVersion = document.getElementById("websiteVersion")?.textContent;
-      if (currentVersion && currentVersion !== "n/a" && currentVersion !== lastVersion) {
-        fab.classList.add("has-updates");
-      }
-      fab.addEventListener("click", () => {
-        fab.classList.remove("has-updates");
-        if (currentVersion && currentVersion !== "n/a") {
-          localStorage.setItem("last-website-version", currentVersion);
-        }
-      }, { once: true });
-    }
-
-    async function loadReleaseInfo() {
-      const currentEl = document.getElementById("currentRelease");
-      const websiteEl = document.getElementById("websiteVersion");
-      const latestEl = document.getElementById("latestRelease");
-      if (!currentEl || !latestEl) return;
-
-      currentEl.textContent = "n/a";
-      latestEl.textContent = "n/a";
-      if (websiteEl) websiteEl.textContent = "n/a";
-
-      let fallbackCurrent = "";
-      try {
-        const currentRes = await fetch("VERSION", { cache: "no-store" });
-        if (currentRes.ok) {
-          fallbackCurrent = (await currentRes.text()).trim();
-        }
-      } catch (_) {}
-
-      try {
-        const latestRes = await fetch("https://api.github.com/repos/palmshed/via/releases/latest", {
-          headers: { "Accept": "application/vnd.github+json" },
+    <script>
+      (function() {
+        var toggle = document.querySelector('.mobile-menu-toggle');
+        var nav = document.getElementById('nav');
+        if (!toggle || !nav) return;
+        function sync() { toggle.setAttribute('aria-expanded', nav.classList.contains('active')); }
+        toggle.addEventListener('click', function(e) {
+          e.stopPropagation();
+          nav.classList.toggle('active');
+          sync();
         });
-        if (latestRes.ok) {
-          const latest = await latestRes.json();
-          const tag = String(latest.tag_name || "").replace(/^desktop\/app-/, "");
-          if (tag) {
-            latestEl.textContent = tag;
-            currentEl.textContent = tag;
+        document.addEventListener('click', function(e) {
+          if (nav.classList.contains('active') && !nav.contains(e.target) && e.target !== toggle) {
+            nav.classList.remove('active');
+            sync();
           }
-        }
-      } catch (_) {}
-
-      if (fallbackCurrent) {
-        currentEl.textContent = fallbackCurrent;
-      }
-
-      if (websiteEl) {
-        try {
-          const webRes = await fetch("WEBSITE-VERSION", { cache: "no-store" });
-          if (webRes.ok) {
-            websiteEl.textContent = (await webRes.text()).trim();
-          } else {
-            websiteEl.textContent = new Date().toISOString().split('T')[0];
+        });
+        document.addEventListener('keydown', function(e) {
+          if (e.key === 'Escape' && nav.classList.contains('active')) {
+            nav.classList.remove('active');
+            sync();
+            toggle.focus();
           }
-        } catch (_) {
-          websiteEl.textContent = new Date().toISOString().split('T')[0];
-        }
-      }
-    }
-
-    document.addEventListener("click", (event) => {
-      const modal = document.getElementById("settingsModal");
-      const fab = document.querySelector(".settings-fab");
-      if (!modal || !fab) return;
-      if (!modal.contains(event.target) && !fab.contains(event.target)) {
-        closeSettingsModal();
-      }
-    });
-
-    document.addEventListener("keydown", (event) => {
-      if (event.key === "Escape") {
-        closeSettingsModal();
-      }
-    });
-
-    (function () {
-      initTheme();
-      loadReleaseInfo().then(checkForUpdates);
-
-      const currentZoom = { level: 1 };
-      function zoomIn() {
-        if (currentZoom.level < 2) {
-          currentZoom.level += 0.1;
-          document.body.style.zoom = currentZoom.level;
-        }
-      }
-      function zoomOut() {
-        if (currentZoom.level > 0.5) {
-          currentZoom.level -= 0.1;
-          document.body.style.zoom = currentZoom.level;
-        }
-      }
-      window.zoomIn = zoomIn;
-      window.zoomOut = zoomOut;
-
-      const toggleBtn = document.querySelector('.sidebar-toggle');
-      if (!toggleBtn) return;
-      const getScrollPosition = () => window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0;
-      const handleScroll = () => {
-        if (getScrollPosition() > 0) {
-          toggleBtn.classList.add('scroll-hide');
-        } else {
-          toggleBtn.classList.remove('scroll-hide');
-        }
-      };
-      window.addEventListener('scroll', handleScroll, { passive: true });
-      handleScroll();
-    })();
-  </script>
-</body>
+        });
+      })();
+    </script>
+  </body>
 </html>

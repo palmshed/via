@@ -1,247 +1,93 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#24d455">
-  <title>Via · handmade</title>
-  <link rel="stylesheet" href="../assets/css/site.css">
-  <link rel="icon" href="../favicon.png" type="image/png">
-  <link rel="apple-touch-icon" href="../assets/images/apple-touch-icon.png">
-  <link rel="manifest" href="../site.webmanifest">
-</head>
-<body>
-  <button class="sidebar-toggle" onclick="toggleSidebar()">☰</button>
-  <button class="settings-fab" type="button" aria-label="Settings" title="Settings" aria-expanded="false" onclick="toggleSettingsModal(event)">⚙</button>
-  <div class="zoom-controls">
-    <button type="button" aria-label="Zoom in" onclick="zoomIn()">➕</button>
-    <button type="button" aria-label="Zoom out" onclick="zoomOut()">➖</button>
-  </div>
-  <div class="settings-modal" id="settingsModal" role="dialog" aria-label="Settings" aria-hidden="true">
-    <div class="settings-modal-title">Settings</div>
-    <div class="settings-modal-note">Theme</div>
-    <div class="settings-theme-options">
-      <button class="settings-theme-btn" type="button" data-theme="default" onclick="setTheme('default')">Default</button>
-      <button class="settings-theme-btn" type="button" data-theme="neutral" onclick="setTheme('neutral')">Neutral</button>
-    </div>
-    <div class="settings-release">
-      <div class="settings-release-row"><span>Current</span><strong id="currentRelease">n/a</strong></div>
-      <div class="settings-release-row"><span>Website</span><strong id="websiteVersion">n/a</strong></div>
-      <div class="settings-release-row"><span>Latest</span><strong id="latestRelease">n/a</strong></div>
-      <div class="settings-release-row"><span>Installer</span><strong>DMG (macOS)</strong></div>
-    </div>
-  </div>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Handmade ~ Via</title>
+    <meta name="description" content="The craft and intent behind Via's design." />
+    <link rel="stylesheet" href="../assets/css/site.css" />
+    <link rel="icon" href="../favicon.png" type="image/png" />
+    <link rel="apple-touch-icon" href="../assets/images/apple-touch-icon.png" />
+    <link rel="manifest" href="../site.webmanifest" />
+  </head>
+  <body>
+    <nav>
+      <span class="nav-mark">via</span>
+      <ul class="nav-links" id="nav">
+        <li><a href="../index.html">Home</a></li>
+        <li><a href="../getting-started.html">Docs</a></li>
+        <li><a href="../book-of-faith.html">Journal</a></li>
+        <li><a href="../features.html">Support</a></li>
+      </ul>
+      <button class="mobile-menu-toggle" aria-label="Menu" aria-expanded="false">Menu</button>
+    </nav>
 
-  <aside class="sidebar">
-    <img src="../assets/images/palmshed-icon.png" class="sidebar-logo" style="width: 32px; height: 32px; border-radius: 6px; margin-bottom: 0.5rem;">
-
-    <div class="sidebar-title">Navigation</div>
-    <ul class="sidebar-nav">
-      <li><a href="../index.html">Home</a></li>
-      <li><a href="https://github.com/palmshed/via/releases/latest/download/via.dmg">Download</a></li>
-      <li><a href="../features.html">Features</a></li>
-    </ul>
-
-    <div class="sidebar-title">Links</div>
-    <ul class="sidebar-nav">
-      <li><a href="https://github.com/palmshed" target="_blank">♡</a></li>
-    </ul>
-
-    <div class="sidebar-title">Blog</div>
-    <ul class="sidebar-nav">
-      <li><a href="../getting-started.html">Start</a></li>
-      <li><a href="fundamentals.html">Fundamentals</a></li>
-      <li><a href="browser-ai.html">AI</a></li>
-      <li><a href="handmade.html">Handmade</a></li>
-      <li><a href="../book-of-faith.html">Faith</a></li>
-    </ul>
-  </aside>
-
-  <main class="main">
-    <div class="content">
-      <div class="section">
-        <h3>Handmade Rituals</h3>
-        <p>Some releases of browser may begin with a pencil, a whiteboard, and a quiet morning. We sometimes map flows by hand before code is written.</p>
-      </div>
-
-      <div class="section">
-        <h3>Purposeful Borders</h3>
-        <p>The UI attempts to be shaped by the way people might hold their devices. Rounded cards, generous spacing, and gentle contrasts aim to give the design the breathing room of craftwork.</p>
-      </div>
-
-      <div class="section">
-        <h3>Manual Notes</h3>
-        <p>Rough notes can become a reference point. Some sections of the app and site may be reviewed manually, with handwritten annotations sometimes guiding layout tweaks so the experience may feel intentionally stitched together.</p>
-      </div>
-
-      <div class="section">
-        <h3>Soft Motion</h3>
-        <p>Micro-interactions try to be tuned like the movement of a slow hand brush stroke - possibly deliberate, calm, and somewhat considerate of focus.</p>
+    <div class="hero hero-short">
+      <div class="hero-content">
+        <h1>Handmade</h1>
+        <p>The craft and intent behind Via's design.</p>
       </div>
     </div>
-  </main>
 
-  <script>
-    function toggleSidebar() {
-      document.body.classList.toggle('sidebar-hidden');
-      document.querySelector('.sidebar-toggle').textContent =
-        document.body.classList.contains('sidebar-hidden') ? '☰' : '✕';
-    }
+    <div class="page">
+      <section>
+        <h2>Handmade rituals</h2>
+        <p>Some releases of Via may begin with a pencil, a whiteboard, and a quiet morning. We sometimes map flows by hand before code is written.</p>
+      </section>
 
-    function toggleSettingsModal(event) {
-      event.stopPropagation();
-      const modal = document.getElementById("settingsModal");
-      const fab = document.querySelector(".settings-fab");
-      if (!modal || !fab) return;
-      const isOpen = modal.classList.toggle("open");
-      modal.setAttribute("aria-hidden", isOpen ? "false" : "true");
-      fab.setAttribute("aria-expanded", isOpen ? "true" : "false");
-    }
+      <section>
+        <h2>Purposeful borders</h2>
+        <p>The UI aims to be shaped by the way people hold their devices. Rounded cards, generous spacing, and gentle contrasts give the design the breathing room of craftwork.</p>
+      </section>
 
-    function closeSettingsModal() {
-      const modal = document.getElementById("settingsModal");
-      const fab = document.querySelector(".settings-fab");
-      if (!modal || !fab) return;
-      modal.classList.remove("open");
-      modal.setAttribute("aria-hidden", "true");
-      fab.setAttribute("aria-expanded", "false");
-    }
+      <section>
+        <h2>Manual notes</h2>
+        <p>Rough notes can become a reference point. Some sections of the app and site may be reviewed manually, with handwritten annotations sometimes guiding layout tweaks so the experience feels intentionally stitched together.</p>
+      </section>
 
-    function syncThemeButtons(theme) {
-      document.querySelectorAll(".settings-theme-btn").forEach((btn) => {
-        btn.classList.toggle("active", btn.dataset.theme === theme);
-      });
-    }
+      <section>
+        <h2>Soft motion</h2>
+        <p>Micro-interactions aim to be tuned like the movement of a slow hand brush stroke, deliberate, calm, and considerate of focus.</p>
+      </section>
 
-    function applyTheme(theme) {
-      document.body.setAttribute("data-theme", theme);
-      syncThemeButtons(theme);
-    }
+      <p class="feedback">Found something unexpected? <a href="https://github.com/palmshed/via/issues">Report an issue</a>.</p>
+    </div>
 
-    function setTheme(theme) {
-      localStorage.setItem("browser-theme", theme);
-      applyTheme(theme);
-    }
+    <footer>
+      <p>&copy; 2026 Palmshed</p>
+      <ul class="footer-links">
+        <li><a href="../index.html">Home</a></li>
+        <li><a href="../getting-started.html">Docs</a></li>
+        <li><a href="../book-of-faith.html">Journal</a></li>
+        <li><a href="../features.html">Support</a></li>
+      </ul>
+    </footer>
 
-    function initTheme() {
-      const savedTheme = localStorage.getItem("browser-theme") || "default";
-      applyTheme(savedTheme);
-    }
-
-    function checkForUpdates() {
-      const fab = document.querySelector(".settings-fab");
-      if (!fab) return;
-      const lastVersion = localStorage.getItem("last-website-version");
-      const currentVersion = document.getElementById("websiteVersion")?.textContent;
-      if (currentVersion && currentVersion !== "n/a" && currentVersion !== lastVersion) {
-        fab.classList.add("has-updates");
-      }
-      fab.addEventListener("click", () => {
-        fab.classList.remove("has-updates");
-        if (currentVersion && currentVersion !== "n/a") {
-          localStorage.setItem("last-website-version", currentVersion);
-        }
-      }, { once: true });
-    }
-
-    async function loadReleaseInfo() {
-      const currentEl = document.getElementById("currentRelease");
-      const websiteEl = document.getElementById("websiteVersion");
-      const latestEl = document.getElementById("latestRelease");
-      if (!currentEl || !latestEl) return;
-
-      currentEl.textContent = "n/a";
-      latestEl.textContent = "n/a";
-      if (websiteEl) websiteEl.textContent = "n/a";
-
-      let fallbackCurrent = "";
-      try {
-        const currentRes = await fetch("VERSION", { cache: "no-store" });
-        if (currentRes.ok) {
-          fallbackCurrent = (await currentRes.text()).trim();
-        }
-      } catch (_) {}
-
-      try {
-        const latestRes = await fetch("https://api.github.com/repos/palmshed/via/releases/latest", {
-          headers: { "Accept": "application/vnd.github+json" },
+    <script>
+      (function() {
+        var toggle = document.querySelector('.mobile-menu-toggle');
+        var nav = document.getElementById('nav');
+        if (!toggle || !nav) return;
+        function sync() { toggle.setAttribute('aria-expanded', nav.classList.contains('active')); }
+        toggle.addEventListener('click', function(e) {
+          e.stopPropagation();
+          nav.classList.toggle('active');
+          sync();
         });
-        if (latestRes.ok) {
-          const latest = await latestRes.json();
-          const tag = String(latest.tag_name || "").replace(/^desktop\/app-/, "");
-          if (tag) {
-            latestEl.textContent = tag;
-            currentEl.textContent = tag;
+        document.addEventListener('click', function(e) {
+          if (nav.classList.contains('active') && !nav.contains(e.target) && e.target !== toggle) {
+            nav.classList.remove('active');
+            sync();
           }
-        }
-      } catch (_) {}
-
-      if (fallbackCurrent) {
-        currentEl.textContent = fallbackCurrent;
-      }
-
-      if (websiteEl) {
-        try {
-          const webRes = await fetch("WEBSITE-VERSION", { cache: "no-store" });
-          if (webRes.ok) {
-            websiteEl.textContent = (await webRes.text()).trim();
-          } else {
-            websiteEl.textContent = new Date().toISOString().split('T')[0];
+        });
+        document.addEventListener('keydown', function(e) {
+          if (e.key === 'Escape' && nav.classList.contains('active')) {
+            nav.classList.remove('active');
+            sync();
+            toggle.focus();
           }
-        } catch (_) {
-          websiteEl.textContent = new Date().toISOString().split('T')[0];
-        }
-      }
-    }
-
-    document.addEventListener("click", (event) => {
-      const modal = document.getElementById("settingsModal");
-      const fab = document.querySelector(".settings-fab");
-      if (!modal || !fab) return;
-      if (!modal.contains(event.target) && !fab.contains(event.target)) {
-        closeSettingsModal();
-      }
-    });
-
-    document.addEventListener("keydown", (event) => {
-      if (event.key === "Escape") {
-        closeSettingsModal();
-      }
-    });
-
-    (function () {
-      initTheme();
-      loadReleaseInfo().then(checkForUpdates);
-
-      const currentZoom = { level: 1 };
-      function zoomIn() {
-        if (currentZoom.level < 2) {
-          currentZoom.level += 0.1;
-          document.body.style.zoom = currentZoom.level;
-        }
-      }
-      function zoomOut() {
-        if (currentZoom.level > 0.5) {
-          currentZoom.level -= 0.1;
-          document.body.style.zoom = currentZoom.level;
-        }
-      }
-      window.zoomIn = zoomIn;
-      window.zoomOut = zoomOut;
-
-      const toggleBtn = document.querySelector('.sidebar-toggle');
-      if (!toggleBtn) return;
-      const getScrollPosition = () => window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0;
-      const handleScroll = () => {
-        if (getScrollPosition() > 0) {
-          toggleBtn.classList.add('scroll-hide');
-        } else {
-          toggleBtn.classList.remove('scroll-hide');
-        }
-      };
-      window.addEventListener('scroll', handleScroll, { passive: true });
-      handleScroll();
-    })();
-  </script>
-</body>
+        });
+      })();
+    </script>
+  </body>
 </html>

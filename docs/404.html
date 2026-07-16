@@ -1,39 +1,66 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#24d455">
-  <title>Redirecting...</title>
-  <link rel="stylesheet" href="assets/css/site.css">
-  <link rel="icon" href="favicon.png" type="image/png">
-  <link rel="apple-touch-icon" href="assets/images/apple-touch-icon.png">
-  <link rel="manifest" href="site.webmanifest">
-</head>
-<body class="sidebar-hidden">
-  <main class="content">
-    <p id="redirect-msg">Redirecting...</p>
-  </main>
-  <script>
-    (function() {
-      var path = window.location.pathname.replace(/^\/via\//, '/');
-      var redirects = {
-        '/start.html':            '/getting-started.html',
-        '/blog-browser-ai.html':  '/writings/browser-ai.html',
-        '/blog-fundamentals.html':'/writings/fundamentals.html',
-        '/blog-handmade.html':    '/writings/handmade.html',
-        '/styles.css':            '/assets/css/site.css',
-        '/image.png':             '/assets/images/brand-mark.png',
-        '/faith-notes.md':        '/development/authentication.md',
-      };
-      var target = redirects[path];
-      if (target) {
-        document.getElementById('redirect-msg').textContent = 'Redirecting to ' + target + '...';
-        window.location.replace(target);
-      } else {
-        document.getElementById('redirect-msg').textContent = 'Page not found.';
-      }
-    })();
-  </script>
-</body>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Redirecting… ~ Via</title>
+    <link rel="stylesheet" href="assets/css/site.css" />
+    <link rel="icon" href="favicon.png" type="image/png" />
+    <link rel="apple-touch-icon" href="assets/images/apple-touch-icon.png" />
+    <link rel="manifest" href="site.webmanifest" />
+  </head>
+  <body>
+    <nav>
+      <span class="nav-mark">via</span>
+      <ul class="nav-links" id="nav">
+        <li><a href="./index.html">Home</a></li>
+        <li><a href="./getting-started.html">Docs</a></li>
+        <li><a href="./book-of-faith.html">Journal</a></li>
+        <li><a href="./features.html">Support</a></li>
+      </ul>
+      <button class="mobile-menu-toggle" aria-label="Menu" aria-expanded="false">Menu</button>
+    </nav>
+
+    <div class="hero hero-404">
+      <div class="hero-content">
+        <h1 style="margin-bottom:0.75rem;">Redirecting…</h1>
+        <p id="redirect-msg">Please wait.</p>
+        <div class="hero-actions">
+          <a href="./index.html">Return home</a>
+        </div>
+      </div>
+    </div>
+
+    <footer>
+      <p>&copy; 2026 Palmshed</p>
+      <ul class="footer-links">
+        <li><a href="./index.html">Home</a></li>
+        <li><a href="./getting-started.html">Docs</a></li>
+        <li><a href="./book-of-faith.html">Journal</a></li>
+        <li><a href="./features.html">Support</a></li>
+      </ul>
+    </footer>
+
+    <script>
+      (function() {
+        var path = window.location.pathname.replace(/^\/via\//, '/');
+        var redirects = {
+          '/start.html':            '/getting-started.html',
+          '/blog-browser-ai.html':  '/writings/browser-ai.html',
+          '/blog-fundamentals.html':'/writings/fundamentals.html',
+          '/blog-handmade.html':    '/writings/handmade.html',
+          '/styles.css':            '/assets/css/site.css',
+          '/image.png':             '/assets/images/brand-mark.png',
+          '/faith-notes.md':        '/development/authentication.md',
+        };
+        var target = redirects[path];
+        if (target) {
+          document.getElementById('redirect-msg').textContent = 'Redirecting to ' + target + '...';
+          window.location.replace(target);
+        } else {
+          document.getElementById('redirect-msg').textContent = 'Page not found.';
+        }
+      })();
+    </script>
+  </body>
 </html>
