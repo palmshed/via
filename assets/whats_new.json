@@ -308,5 +308,8 @@
   ],
   "1.29.2": [
     "rename browser artifact paths to via."
+  ],
+  "1.29.3": [
+    "sharpen menu bar icon and align PR template."
   ]
 }
