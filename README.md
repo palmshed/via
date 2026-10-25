@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/palmshed/via/main/.github/assets/thumbnail.png" alt="via" width="100%">
+</p>
+
 # Via
 
 ![Via Banner](assets/banner.png)
