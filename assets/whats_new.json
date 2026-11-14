@@ -311,5 +311,8 @@
   ],
   "1.29.3": [
     "sharpen menu bar icon and align PR template."
+  ],
+  "1.29.4": [
+    "remove thumbnail image from README."
   ]
 }
